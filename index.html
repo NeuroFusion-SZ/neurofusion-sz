@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroFusion-SZ · Literature Constellation</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='6' fill='%23f5b942'/%3E%3Ccircle cx='6' cy='8' r='2' fill='%235eead4'/%3E%3Ccircle cx='26' cy='24' r='2' fill='%23fb6f92'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root {
+  --bg: #060a16;
+  --bg-deep: #03050c;
+  --panel: #0c1223;
+  --panel-2: #0f1830;
+  --border: #1c2743;
+  --text: #e8ecf8;
+  --muted: #7c88ab;
+  --muted-2: #4d5878;
+  --gold: #f5b942;
+  --gold-dim: #f5b94255;
+  --gap: #fb6f92;
+  --gap-dim: #fb6f9255;
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+::selection { background: var(--gold-dim); }
+
+/* ---------- Sidebar ---------- */
+#sidebar {
+  width: 400px;
+  min-width: 400px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 24px 22px;
+  overflow-y: auto;
+  position: relative;
+  z-index: 5;
+  transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+}
+#sidebar::-webkit-scrollbar { width: 8px; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--muted-2);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+#sidebar h1 {
+  font-family: var(--sans);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  line-height: 1.15;
+}
+#sidebar h1 span { color: var(--gold); }
+#sidebar .subtitle {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 6px 0 18px;
+}
+
+#stat-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.stat-chip {
+  flex: 1;
+  min-width: 90px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.stat-chip .num { font-family: var(--sans); font-size: 1.15rem; font-weight: 700; color: var(--gold); }
+.stat-chip .lbl { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 1px; }
+
+#search-wrap {
+  position: relative;
+  margin-bottom: 20px;
+}
+#search-wrap::before {
+  content: '⌕';
+  position: absolute;
+  left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--muted-2);
+  font-size: 1rem;
+}
+#search {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px 9px 32px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+#search:focus { border-color: var(--gold); }
+#search::placeholder { color: var(--muted-2); }
+
+.filter-group { margin-bottom: 18px; }
+.filter-group label {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: var(--mono);
+}
+.filter-btn {
+  display: inline-block;
+  padding: 5px 11px;
+  margin: 0 6px 6px 0;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-family: var(--mono);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-btn:hover { border-color: var(--muted); color: var(--text); }
+.filter-btn.active { color: var(--bg); font-weight: 600; }
+.mode-btn.active { background: var(--gold); border-color: var(--gold); color: var(--bg-deep); }
+
+#detail-panel {
+  margin-top: 4px;
+  padding: 16px;
+  background: var(--panel-2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+  display: none;
+  animation: rise 0.25s ease;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+#detail-panel h3 {
+  font-family: var(--sans);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.35;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+}
+#detail-panel .field { margin-bottom: 9px; }
+#detail-panel .field-label {
+  color: var(--muted-2);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: block;
+  margin-bottom: 2px;
+}
+#detail-panel .field-value { color: var(--text); line-height: 1.4; }
+#dp-link {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px solid var(--gold-dim);
+}
+#dp-link:hover { border-bottom-color: var(--gold); }
+.gap-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 0.66rem;
+  margin: 2px 4px 2px 0;
+  background: var(--gap-dim);
+  border: 1px solid var(--gap);
+  color: #ffd7e0;
+  cursor: pointer;
+}
+.severity-high { background: #fb6f9233; border-color: var(--gap); }
+#dp-close {
+  float: right;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ---------- Main / graph ---------- */
+#main { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
+#starfield { position: absolute; inset: 0; z-index: 0; }
+#canvas { width: 100%; height: 100%; position: relative; z-index: 1; cursor: grab; }
+#canvas.dragging { cursor: grabbing; }
+
+#legend {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  background: rgba(12,18,35,0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.7rem;
+  z-index: 3;
+}
+#legend .lt { font-family: var(--sans); font-weight: 600; margin-bottom: 8px; color: var(--muted); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.08em; }
+.legend-item { display: flex; align-items: center; margin: 5px 0; color: var(--muted); }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+
+#tooltip {
+  position: absolute;
+  background: rgba(9,13,26,0.97);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 13px;
+  font-size: 0.76rem;
+  pointer-events: none;
+  display: none;
+  max-width: 300px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+#tooltip .tt-title { font-family: var(--sans); color: var(--gold); font-weight: 600; margin-bottom: 3px; line-height: 1.3; }
+#tooltip .tt-meta { color: var(--muted); font-size: 0.7rem; }
+
+.controls { position: absolute; top: 18px; right: 18px; display: flex; gap: 8px; z-index: 3; }
+.ctrl-btn {
+  background: rgba(12,18,35,0.92);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 13px;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  font-family: var(--mono);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.ctrl-btn:hover { border-color: var(--gold); }
+
+#sidebar-toggle {
+  display: none;
+  position: absolute;
+  top: 18px; left: 18px;
+  z-index: 6;
+  background: rgba(12,18,35,0.92);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.node-title { fill: #cbd5e1; font-family: var(--mono); font-size: 9.5px; pointer-events: none; }
+.gap-label { fill: var(--gap); font-family: var(--sans); font-size: 10px; font-weight: 700; pointer-events: none; }
+.paper-node { cursor: pointer; }
+.gap-node { cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-anim { animation: none !important; }
+}
+
+@media (max-width: 860px) {
+  #sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 10;
+    transform: translateX(-100%);
+    box-shadow: 0 0 40px rgba(0,0,0,0.6);
+    width: 88%;
+    min-width: 0;
+  }
+  #sidebar.open { transform: translateX(0); }
+  #sidebar-toggle { display: block; }
+  #legend { display: none; }
+}
+</style>
+</head>
+<body>
+
+<button id="sidebar-toggle" aria-label="Toggle filters">☰</button>
+
+<div id="sidebar">
+  <div class="eyebrow">Systematic review · schizophrenia neuroimaging AI</div>
+  <h1>Neuro<span>Fusion</span>-SZ</h1>
+  <div class="subtitle">Literature constellation &amp; research-gap map</div>
+
+  <div id="stat-row"></div>
+
+  <div id="search-wrap">
+    <input id="search" type="text" placeholder="Search titles, models, journals…" autocomplete="off">
+  </div>
+
+  <div class="filter-group">
+    <label>Filter by domain</label>
+    <div id="domain-filters"></div>
+  </div>
+
+  <div class="filter-group">
+    <label>Highlight research gaps</label>
+    <div id="gap-filters"></div>
+  </div>
+
+  <div class="filter-group">
+    <label>View mode</label>
+    <button class="filter-btn mode-btn active" data-mode="all">All papers</button>
+    <button class="filter-btn mode-btn" data-mode="gaps">Gap focus</button>
+  </div>
+
+  <div id="detail-panel">
+    <button id="dp-close" aria-label="Close">✕</button>
+    <h3 id="dp-title">Select a node</h3>
+    <div class="field"><span class="field-label">Year</span><div class="field-value" id="dp-year"></div></div>
+    <div class="field"><span class="field-label">Journal</span><div class="field-value" id="dp-journal"></div></div>
+    <div class="field"><span class="field-label">Source</span><div class="field-value" id="dp-doi"></div></div>
+    <div class="field"><span class="field-label">Dataset</span><div class="field-value" id="dp-dataset"></div></div>
+    <div class="field"><span class="field-label">N</span><div class="field-value" id="dp-n"></div></div>
+    <div class="field"><span class="field-label">Modality</span><div class="field-value" id="dp-modality"></div></div>
+    <div class="field"><span class="field-label">Model</span><div class="field-value" id="dp-model"></div></div>
+    <div class="field"><span class="field-label">Validation</span><div class="field-value" id="dp-validation"></div></div>
+    <div class="field"><span class="field-label">Performance</span><div class="field-value" id="dp-metric"></div></div>
+    <div class="field"><span class="field-label">Limitation</span><div class="field-value" id="dp-limitation"></div></div>
+    <div class="field"><span class="field-label">Gaps addressed</span><div class="field-value" id="dp-gaps"></div></div>
+  </div>
+</div>
+
+<div id="main">
+  <canvas id="starfield"></canvas>
+  <svg id="canvas">
+    <defs>
+      <radialGradient id="haloGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="currentColor" stop-opacity="0.16"/>
+        <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <g class="zoom-layer">
+      <g class="halos"></g>
+      <g class="links-gap"></g>
+      <g class="links-domain"></g>
+      <g class="gap-nodes"></g>
+      <g class="paper-nodes"></g>
+      <g class="domain-labels"></g>
+    </g>
+  </svg>
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-reset">Reset view</button>
+    <button class="ctrl-btn" id="btn-labels">Toggle labels</button>
+  </div>
+  <div id="legend"></div>
+  <div id="tooltip"></div>
+</div>
+
+<script>
+/* ============================================================
+   DATA (verbatim from source review)
+   ============================================================ */
+const papers = [{"id": "P1", "title": "Identifying Schizophrenia Using Structural MRI With a Deep Learning Algorithm", "year": 2020, "journal": "Biological Psychiatry: Cognitive Neuroscience and Neuroimaging", "doi": "10.1016/j.bpsc.2019.12.006", "dataset": "SchizConnect (BrainGluSchi, COBRE, MCICShare, NMorphCH, NUSDAST)", "n": 873, "modality": "Structural T1 MRI (multi-site, 1.5T/3T)", "model": "3D CNN (custom)", "validation": "Multi-site train/test; external dataset generalization", "metric": "AUC 0.96 (train), 0.71-0.90 (external)", "limitation": "Performance degrades on younger patients with shorter illness duration; right temporal/parietal focus may miss other regions", "gaps": ["G1", "G2", "G5"], "domains": ["SZ+T1 MRI", "SZ+CNN/DL"]}, {"id": "P2", "title": "Detecting schizophrenia with 3D structural brain MRI using deep learning", "year": 2023, "journal": "Scientific Reports", "doi": "10.1038/s41598-023-41359-z", "dataset": "COBRE, NMorphCH, BrainGluSchi", "n": 887, "modality": "Structural T1 MRI (whole-brain)", "model": "SE-VGG-11BN (3D CNN with Squeeze-Excitation + BatchNorm)", "validation": "Train on COBRE+NMorphCH, test on BrainGluSchi", "metric": "AUC 0.987, Accuracy 0.921, Sensitivity 0.949", "limitation": "Limited to schizophrenia vs. cognitive normal; no clinical covariates; subcortical/ventricular activation bias", "gaps": ["G1", "G2", "G5", "G7"], "domains": ["SZ+T1 MRI", "SZ+CNN/DL", "XAI/Grad-CAM"]}, {"id": "P3", "title": "Decision processes in 3D structural MRI schizophrenia classification with Grad-CAM", "year": 2024, "journal": "Scientific Reports", "doi": "10.1038/s41598-026-57667-z", "dataset": "Private dataset + public benchmarks", "n": 200, "modality": "Structural T1 MRI", "model": "7 DL architectures (ResNet, VGG, DenseNet, etc.)", "validation": "Cross-validation + plausibility scoring", "metric": "Only 2 of 7 models used plausible brain regions despite similar accuracy", "limitation": "Qualitative Grad-CAM assessment; no quantitative biomarker validation; many models attend to non-biological regions", "gaps": ["G2", "G7", "G8"], "domains": ["SZ+CNN/DL", "XAI/Grad-CAM"]}, {"id": "P4", "title": "Exploring the significance of the frontal lobe for diagnosis of schizophrenia using explainable AI and group level analysis", "year": 2025, "journal": "Psychiatry Research: Neuroimaging", "doi": "10.1016/j.pscychresns.2025.111024", "dataset": "OpenNeuro ds000115 (MCIC)", "n": 99, "modality": "sMRI + fMRI (N-back task)", "model": "ResNet-50 + Grad-CAM", "validation": "Hold-out test; correlation with group-level fMRI/sMRI differences", "metric": "Accuracy 97.33%", "limitation": "Very small sample; 2D slice approach loses 3D context; no external validation", "gaps": ["G2", "G5", "G7"], "domains": ["SZ+T1 MRI", "SZ+CNN/DL", "XAI/Grad-CAM"]}, {"id": "P5", "title": "A novel strategy for enhanced schizophrenia detection using established CNN architectures", "year": 2024, "journal": "BMC Medical Imaging", "doi": "10.1186/s12880-024-01234-5", "dataset": "Private dataset", "n": 300, "modality": "Structural T1 MRI (contrast-enhanced slices)", "model": "DeepLabv3+ segmentation + lightweight CNN classifier", "validation": "5-fold cross-validation", "metric": "Accuracy 98.02%, AUC 0.9917", "limitation": "Region-specific focus (temporal lobe/insula only) may miss distributed pathology; no multi-site validation", "gaps": ["G1", "G2", "G5"], "domains": ["SZ+T1 MRI", "SZ+CNN/DL", "XAI/Grad-CAM"]}, {"id": "P6", "title": "Structural MRI-Based Schizophrenia Classification Using Autoencoders and 3D CNNs", "year": 2022, "journal": "Applied Sciences", "doi": "10.3390/app12094378", "dataset": "Private dataset", "n": 104, "modality": "Structural T1 MRI (VBM, DBM, raw)", "model": "Stacked Autoencoders + 3D CNN + DAG-CNN", "validation": "10-fold cross-validation", "metric": "Best accuracy 69.62% (SAE on GMD); 3D CNN max 63.08%", "limitation": "Very small sample; feature combination caused overfitting; preprocessing comparison inconclusive", "gaps": ["G1", "G2", "G5"], "domains": ["SZ+T1 MRI", "SZ+CNN/DL"]}, {"id": "P7", "title": "Cortical brain abnormalities in 4474 individuals with schizophrenia via ENIGMA", "year": 2018, "journal": "JAMA Psychiatry", "doi": "10.1001/jamapsychiatry.2018.0505", "dataset": "ENIGMA Schizophrenia Working Group (39 centers)", "n": 9572, "modality": "Structural T1 MRI (cortical thickness, surface area)", "model": "Meta-analysis (standardized mass-univariate)", "validation": "Cross-sectional meta-analysis; standardized protocols", "metric": "Widespread thinner cortex (d = -0.53); smaller surface area (d = -0.25); frontal/temporal max effects", "limitation": "Cross-sectional; medication effects confound thickness; no genetic data integrated", "gaps": ["G1", "G3", "G6"], "domains": ["SZ+T1 MRI"]}, {"id": "P8", "title": "Large-scale analysis of structural brain asymmetries in schizophrenia via ENIGMA", "year": 2023, "journal": "PNAS", "doi": "10.1073/pnas.2213880120", "dataset": "ENIGMA Schizophrenia Working Group", "n": 10000, "modality": "Structural T1 MRI (asymmetry indices)", "model": "Meta-analysis of asymmetry indices", "validation": "Multi-site meta-analysis", "metric": "Rostral ACC thickness asymmetry reversal (d = -0.083); middle temporal gyrus asymmetry shift", "limitation": "Small effect sizes; no deep learning; no genetic integration", "gaps": ["G1", "G3", "G6"], "domains": ["SZ+T1 MRI"]}, {"id": "P9", "title": "Machine learning-based morphological brain analysis in schizophrenia and unaffected siblings: a multisite study", "year": 2026, "journal": "Frontiers in Neuroscience", "doi": "10.3389/fnins.2026.1688282", "dataset": "COBRE, MCICShare, BrainGluSchi, NMorphCH, NUSDAST", "n": 1002, "modality": "Structural T1 MRI (surface morphology)", "model": "Ensemble SVM + Schizophrenia Prediction Score (SPS)", "validation": "Leave-One-Database-Out Cross-Validation (LODO-CV)", "metric": "AUC 0.9989 overall; external AUCs 0.79-0.99", "limitation": "SVM not deep learning; siblings as intermediate phenotype but no genetic data; black-box ensemble", "gaps": ["G2", "G5", "G7"], "domains": ["SZ+T1 MRI", "SZ+CNN/DL"]}, {"id": "P10", "title": "Multi-modal deep learning from imaging genomic data for schizophrenia classification", "year": 2024, "journal": "BMC Medical Informatics and Decision Making", "doi": "10.1186/s12911-024-02483-4", "dataset": "Private clinical dataset", "n": 300, "modality": "sMRI + fMRI + SNP (raw genotypes)", "model": "DenseNet (sMRI) + 1D-CNN+LRP (fMRI/SNP) + XGBoost fusion", "validation": "5-fold cross-validation", "metric": "Accuracy 79.01% (fusion); sMRI alone 66.36%; SNP alone 57.06%; FNC alone 75.29%", "limitation": "Uses raw SNPs not PRS; XGBoost fusion is shallow; small sample; no external validation", "gaps": ["G3", "G4", "G5", "G9"], "domains": ["SZ+CNN/DL", "SZ+Multimodal", "SZ+Genetics", "XAI/Grad-CAM"]}, {"id": "P11", "title": "Multi-modal Imaging Genomics Transformer", "year": 2024, "journal": "arXiv (preprint)", "doi": "arXiv:2407.19385", "dataset": "Private dataset", "n": 400, "modality": "sMRI + functional connectome + SNP", "model": "Transformer with cross-modal multi-head attention (Genomic SANet + Connectome SANet + SSANet)", "validation": "Cross-validation + ablation", "metric": "Accuracy 82.71% (3-way fusion); Connectome alone 82.33%", "limitation": "Preprint; uses SNPs not PRS; attention maps need clinical validation; no external dataset", "gaps": ["G3", "G4", "G5", "G9"], "domains": ["SZ+CNN/DL", "SZ+Multimodal", "SZ+Genetics"]}, {"id": "P12", "title": "Deep multimodal predictome for studying mental disorders", "year": 2023, "journal": "Human Brain Mapping", "doi": "10.1002/hbm.26123", "dataset": "Private dataset", "n": 300, "modality": "sMRI + fMRI + SNP", "model": "DNN with modality-specific subnets + attention-based mid-fusion", "validation": "Cross-validation", "metric": "Accuracy 92% (mid-fusion with attention); sMRI 78%, fMRI 81%, SNP 68%", "limitation": "Uses SNPs not PRS; no external validation; saliency analysis qualitative; sample size modest", "gaps": ["G3", "G4", "G5", "G9"], "domains": ["SZ+CNN/DL", "SZ+Multimodal", "SZ+Genetics"]}, {"id": "P13", "title": "Discriminative analysis of schizophrenia patients using an integrated model combining 3D CNN with 2D CNN", "year": 2023, "journal": "Brain Research Bulletin", "doi": "10.1016/j.brainresbull.2023.110271", "dataset": "Private dataset", "n": 345, "modality": "sMRI (T1) + rs-fMRI (SC, FC, ALFF, ReHo)", "model": "3D CNN (T1/ALFF/ReHo) + 2D CNN (SC/FC matrices) + SE-blocks + SVM", "validation": "Cross-validation", "metric": "Accuracy 89.86%, AUC 89.35% (T1+FC fusion)", "limitation": "No genetic data; SVM replaces softmax; single-site; no explainability analysis", "gaps": ["G3", "G5", "G7"], "domains": ["SZ+T1 MRI", "SZ+CNN/DL", "SZ+Multimodal"]}, {"id": "P14", "title": "Grey and white matter microstructure is associated with polygenic risk for schizophrenia", "year": 2021, "journal": "Molecular Psychiatry", "doi": "10.1038/s41380-021-01260-5", "dataset": "UK Biobank", "n": 29000, "modality": "T1 MRI + dMRI/NODDI (macro + microstructure)", "model": "Mixed-effects regression (PRS x MRI phenotypes)", "validation": "Population cohort; FDR correction", "metric": "PRS negatively associated with global NDI (R2~0.05%) and FA; thalamic NDI strongest (R2=0.08%); 149 cortical areas for NDI", "limitation": "Population cohort (not patient sample); effect sizes tiny; no deep learning; cross-sectional", "gaps": ["G1", "G4", "G6", "G9"], "domains": ["SZ+T1 MRI", "SZ+Genetics", "SZ+PRS", "MRI+PRS"]}, {"id": "P15", "title": "Schizophrenia Polygenic Risk During Typical Development Reflects Multiscale Cortical Organization", "year": 2023, "journal": "Biological Psychiatry Global Open Science", "doi": "10.1016/j.bpsgos.2022.10.006", "dataset": "PING cohort", "n": 390, "modality": "T1 MRI (cortical thickness)", "model": "Vertex-wise regression + ENIGMA meta-analytic comparison", "validation": "Age-matched transcriptomics; cytoarchitectural mapping", "metric": "Higher PRS associated with greater cortical thickness in childhood, shifting toward thinning in adolescence; mirrors ENIGMA case-control pattern", "limitation": "Typically developing children, not patients; no deep learning; small sample", "gaps": ["G1", "G4", "G6"], "domains": ["SZ+T1 MRI", "SZ+Genetics", "SZ+PRS"]}, {"id": "P16", "title": "Predicting Treatment Response in Schizophrenia With MRI and Polygenic Risk Score", "year": 2022, "journal": "Frontiers in Genetics", "doi": "10.3389/fgene.2022.848205", "dataset": "Peking University Sixth Hospital cohort", "n": 94, "modality": "Structural MRI + resting-state fMRI", "model": "Random Forest (MRI features + PRS)", "validation": "Cross-validation", "metric": "PRS adds prognostic power when combined with MRI; PRS importance intermediate between neuroimaging measures", "limitation": "Traditional ML not deep learning; small sample; treatment response not diagnosis; no end-to-end fusion", "gaps": ["G3", "G4", "G6", "G9"], "domains": ["SZ+Genetics", "SZ+PRS", "MRI+PRS"]}, {"id": "P17", "title": "Schizophrenia Polygenic Risk Score as a Predictor of Antipsychotic Efficacy", "year": 2019, "journal": "American Journal of Psychiatry", "doi": "10.1176/appi.ajp.2018.18040479", "dataset": "ZHH-FE, EUFEST, PAFIP, CIDAR", "n": 510, "modality": "Genetic (PRS only)", "model": "Hierarchical linear regression", "validation": "Discovery + 3 replication cohorts", "metric": "Higher PRS predicted worse 12-week symptom outcome (pooled partial r=0.18, p=0.002); OR=1.91 for responders in low-PRS", "limitation": "No neuroimaging; PRS explains only ~3.2% variance; pharmacogenomic focus not diagnostic", "gaps": ["G4", "G6"], "domains": ["SZ+Genetics", "SZ+PRS"]}, {"id": "P18", "title": "Polygenic Scores in Psychiatry: On the Road From Discovery to Implementation", "year": 2022, "journal": "American Journal of Psychiatry", "doi": "10.1176/appi.ajp.20220795", "dataset": "PGC3 GWAS meta-analysis", "n": 320404, "modality": "Genetic (GWAS summary statistics)", "model": "PGC3 GWAS; PRS construction", "validation": "Cross-ancestry validation", "metric": "287 loci; PRS explains 7.3% liability variance; top 1% = 6x increased risk; top 10% = 16x vs bottom decile", "limitation": "No imaging; European ancestry bias; absolute risk still low (~4-6% for top 1%)", "gaps": ["G4", "G6"], "domains": ["SZ+Genetics", "SZ+PRS"]}, {"id": "P19", "title": "Development and validation of polygenic risk profiles of schizophrenia", "year": 2025, "journal": "medRxiv (preprint)", "doi": "10.1101/2025.04.29.25326656", "dataset": "FinnGen, PsyCourse, Bari", "n": 36761, "modality": "Genetic (413 psychiatry-related PGS)", "model": "PRScope framework: LDPred2 + k-means + Random Forest", "validation": "Cross-validation + 2 independent validation cohorts", "metric": "Two distinct genetic risk profiles identified; GRP1 = high depression/neuroticism + low cognition; GRP2 = opposite; both equal SCZ liability", "limitation": "No neuroimaging; multi-PGS approach computationally heavy; clinical differences modest (no PANSS differences)", "gaps": ["G4", "G6", "G9"], "domains": ["SZ+Genetics", "SZ+PRS"]}];
+
+const gaps = {"G1": {"title": "Small Sample Sizes & Single-Site Bias", "description": "Most DL studies use n < 400 and single-site data. Even multi-site studies pool data without harmonization. Need for federated learning or domain adaptation across scanners/protocols.", "severity": 9}, "G2": {"title": "Limited Generalization & Dataset Shift", "description": "Models achieving AUC >0.95 on pooled data drop to AUC 0.71-0.82 on true external validation (younger patients, different scanners). No robust cross-scanner harmonization in DL pipelines.", "severity": 9}, "G3": {"title": "Shallow Fusion in Multimodal Models", "description": "Current multimodal DL uses late concatenation or XGBoost/RF fusion after separate unimodal feature extraction. No end-to-end deep fusion with attention/gating that learns cross-modal interactions at multiple representation levels.", "severity": 8}, "G4": {"title": "SNPs vs. PRS: Missing Polygenic Signal", "description": "All multimodal DL papers use raw SNPs (high-dimensional, sparse) rather than PRS (low-dimensional, cumulative liability). PRS captures genome-wide liability; SNP selection may miss polygenic architecture.", "severity": 8}, "G5": {"title": "No Prospective/Clinical Validation", "description": "All studies are retrospective cross-sectional. No prospective validation in clinical settings; no comparison to clinician judgment; no assessment of real-world diagnostic utility or cost-effectiveness.", "severity": 8}, "G6": {"title": "PRS-MRI Integration: Association but Not Prediction", "description": "Large studies (UK Biobank, ENIGMA) show PRS-MRI associations, but no study uses PRS as a predictive feature within a deep learning architecture for schizophrenia classification or prognosis.", "severity": 10}, "G7": {"title": "Explainability Without Clinical Grounding", "description": "Grad-CAM heatmaps often highlight plausible regions, but quantitative validation against known biomarkers (e.g., ENIGMA effect sizes) is rare. No study correlates XAI outputs with symptom dimensions longitudinally.", "severity": 7}, "G8": {"title": "Lack of Standardized XAI Benchmarks", "description": "No consensus on how to evaluate whether an XAI explanation is 'correct' for psychiatric neuroimaging. Grad-CAM is qualitative; no standardized anatomical scoring or clinician-in-the-loop validation exists.", "severity": 6}, "G9": {"title": "MRI + Deep Learning + PRS: Completely Unstudied", "description": "CRITICAL GAP: No published study combines structural MRI, deep learning, and PRS in a unified end-to-end architecture. Liu 2022 used RF (not DL); multimodal DL papers used SNPs (not PRS). This is the precise niche for NeuroFusion-SZ.", "severity": 10}};
+
+const domains = {"SZ+T1 MRI": {"color": "#3b82f6"}, "SZ+CNN/DL": {"color": "#8b5cf6"}, "SZ+Multimodal": {"color": "#10b981"}, "SZ+Genetics": {"color": "#f59e0b"}, "SZ+PRS": {"color": "#ef4444"}, "MRI+PRS": {"color": "#ec4899"}, "XAI/Grad-CAM": {"color": "#06b6d4"}};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let activeDomains = new Set(Object.keys(domains));
+let activeGaps = new Set(Object.keys(gaps));
+let showLabels = true;
+let mode = 'all';
+let searchTerm = '';
+let selected = null;
+
+/* ============================================================
+   STARFIELD BACKGROUND
+   ============================================================ */
+(function starfield() {
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let stars = [];
+  function resize() {
+    canvas.width = canvas.offsetWidth * devicePixelRatio;
+    canvas.height = canvas.offsetHeight * devicePixelRatio;
+    const count = Math.floor((canvas.width * canvas.height) / 9000);
+    stars = Array.from({length: count}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.1 + 0.2,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.4 + Math.random() * 0.8
+    }));
+  }
+  function draw(t) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const s of stars) {
+      const tw = reduceMotion ? 0.6 : 0.5 + 0.5 * Math.sin(t * 0.001 * s.speed + s.phase);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(226,232,255,${0.15 + tw * 0.5})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(draw);
+})();
+
+/* ============================================================
+   GRAPH SETUP
+   ============================================================ */
+const mainEl = document.getElementById('main');
+const svg = d3.select('#canvas');
+const zoomLayer = svg.select('.zoom-layer');
+const tooltip = document.getElementById('tooltip');
+
+let W = mainEl.clientWidth, H = mainEl.clientHeight;
+
+const domainKeys = Object.keys(domains);
+const gapKeys = Object.keys(gaps);
+const hub = {};   // domain -> {x,y}
+const ring = {};  // gap -> {x,y}
+
+function computeAnchors() {
+  W = mainEl.clientWidth; H = mainEl.clientHeight;
+  const cx = W / 2, cy = H / 2;
+  const R1 = Math.min(W, H) * 0.27;
+  const R2 = Math.min(W, H) * 0.46;
+  domainKeys.forEach((k, i) => {
+    const a = (i / domainKeys.length) * Math.PI * 2 - Math.PI / 2;
+    hub[k] = { x: cx + R1 * Math.cos(a), y: cy + R1 * Math.sin(a) };
+  });
+  gapKeys.forEach((k, i) => {
+    const a = (i / gapKeys.length) * Math.PI * 2 - Math.PI / 2 + 0.35;
+    ring[k] = { x: cx + R2 * Math.cos(a), y: cy + R2 * Math.sin(a) };
+  });
+}
+computeAnchors();
+
+// simulation nodes
+const paperNodes = papers.map(p => ({ ...p, kind: 'paper', r: 7,
+  x: hub[p.domains[0]].x + (Math.random()-0.5)*40, y: hub[p.domains[0]].y + (Math.random()-0.5)*40 }));
+const gapNodes = gapKeys.map(k => ({ id: k, kind: 'gap', ...gaps[k], r: 9 + gaps[k].severity * 1.5,
+  x: ring[k].x, y: ring[k].y }));
+const allNodes = paperNodes.concat(gapNodes);
+const byId = new Map(allNodes.map(n => [n.id, n]));
+
+const links = [];
+papers.forEach(p => p.gaps.forEach(g => links.push({ source: p.id, target: g })));
+
+function paperTarget(d, axis) {
+  const hs = d.domains.map(dm => hub[dm]);
+  const v = hs.reduce((s, h) => s + h[axis], 0) / hs.length;
+  return v;
+}
+
+const simulation = d3.forceSimulation(allNodes)
+  .force('charge', d3.forceManyBody().strength(d => d.kind === 'gap' ? -180 : -55))
+  .force('collide', d3.forceCollide().radius(d => d.r + (d.kind === 'gap' ? 10 : 5)).strength(0.9))
+  .force('link', d3.forceLink(links).id(d => d.id).distance(120).strength(0.025))
+  .force('x', d3.forceX(d => d.kind === 'paper' ? paperTarget(d, 'x') : ring[d.id].x).strength(d => d.kind === 'paper' ? 0.12 : 0.22))
+  .force('y', d3.forceY(d => d.kind === 'paper' ? paperTarget(d, 'y') : ring[d.id].y).strength(d => d.kind === 'paper' ? 0.12 : 0.22))
+  .alphaDecay(0.02);
+
+/* ---------- DOM: halos & domain labels ---------- */
+const halos = zoomLayer.select('.halos').selectAll('circle.halo')
+  .data(domainKeys).enter().append('circle')
+  .attr('class', 'halo')
+  .attr('r', 90)
+  .attr('fill', 'url(#haloGrad)')
+  .style('color', k => domains[k].color);
+
+const domLabels = zoomLayer.select('.domain-labels').selectAll('text')
+  .data(domainKeys).enter().append('text')
+  .attr('text-anchor', 'middle')
+  .attr('font-family', 'var(--sans)')
+  .attr('font-size', 11.5)
+  .attr('font-weight', 600)
+  .attr('fill', k => domains[k].color)
+  .text(k => k);
+
+function positionHalos() {
+  halos.attr('cx', k => hub[k].x).attr('cy', k => hub[k].y);
+  domLabels.attr('x', k => hub[k].x).attr('y', k => hub[k].y - 96);
+}
+positionHalos();
+
+/* ---------- DOM: gap↔paper dashed links ---------- */
+const gapLinkSel = zoomLayer.select('.links-gap').selectAll('line')
+  .data(links).enter().append('line')
+  .attr('stroke', 'var(--gap)').attr('stroke-width', 1)
+  .attr('stroke-dasharray', '3,4').attr('opacity', 0.22);
+
+/* ---------- DOM: paper -> domain hub lines ---------- */
+const domainLinkData = [];
+papers.forEach(p => p.domains.forEach(d => domainLinkData.push({ paper: p.id, domain: d })));
+const domainLinkSel = zoomLayer.select('.links-domain').selectAll('line')
+  .data(domainLinkData).enter().append('line')
+  .attr('stroke', d => domains[d.domain].color).attr('stroke-width', 1).attr('opacity', 0.13);
+
+/* ---------- DOM: gap nodes ---------- */
+const gapSel = zoomLayer.select('.gap-nodes').selectAll('g.gap-node')
+  .data(gapNodes, d => d.id).enter().append('g').attr('class', 'gap-node');
+gapSel.append('circle')
+  .attr('r', d => d.r).attr('fill', 'var(--gap)').attr('opacity', 0.85)
+  .attr('class', 'pulse-anim')
+  .style('animation', 'pulseAnim 2.4s ease-in-out infinite');
+gapSel.append('text').attr('class', 'gap-label').attr('text-anchor', 'middle').attr('dy', d => d.r + 14).text(d => d.id);
+
+const styleTag = document.createElement('style');
+styleTag.textContent = '@keyframes pulseAnim {0%,100%{opacity:.55}50%{opacity:.95}}';
+document.head.appendChild(styleTag);
+
+gapSel.on('mouseenter', (e, d) => showTooltip(e, d.title, `Severity ${d.severity}/10 · click for detail`))
+  .on('mouseleave', hideTooltip)
+  .on('click', (e, d) => { e.stopPropagation(); showGapDetail(d.id); });
+
+/* ---------- DOM: paper nodes ---------- */
+const paperSel = zoomLayer.select('.paper-nodes').selectAll('g.paper-node')
+  .data(paperNodes, d => d.id).enter().append('g').attr('class', 'paper-node');
+paperSel.append('circle')
+  .attr('r', 7)
+  .attr('fill', d => domains[d.domains[0]].color)
+  .attr('stroke', '#03050c').attr('stroke-width', 2).attr('opacity', 0.92);
+paperSel.append('text').attr('class', 'node-title').attr('x', 11).attr('y', 3).text(d => d.id);
+
+paperSel.on('mouseenter', (e, d) => showTooltip(e, d.title, `${d.year} · ${d.metric}`))
+  .on('mouseleave', hideTooltip)
+  .on('click', (e, d) => { e.stopPropagation(); selectPaper(d); });
+
+/* ---------- drag ---------- */
+function drag(sim) {
+  function started(e, d) { if (!e.active) sim.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; svg.select('#canvas').classed('dragging', true); }
+  function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+  function ended(e, d) { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; svg.select('#canvas').classed('dragging', false); }
+  return d3.drag().on('start', started).on('drag', dragged).on('end', ended);
+}
+paperSel.call(drag(simulation));
+gapSel.call(drag(simulation));
+
+/* ---------- zoom/pan ---------- */
+const zoom = d3.zoom().scaleExtent([0.35, 4]).on('zoom', e => zoomLayer.attr('transform', e.transform));
+svg.call(zoom).on('dblclick.zoom', null);
+
+document.getElementById('btn-reset').onclick = () => {
+  svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+};
+document.getElementById('btn-labels').onclick = () => {
+  showLabels = !showLabels;
+  zoomLayer.selectAll('.node-title, .gap-label').style('display', showLabels ? null : 'none');
+};
+
+/* ---------- tick ---------- */
+simulation.on('tick', () => {
+  paperSel.attr('transform', d => `translate(${d.x},${d.y})`);
+  gapSel.attr('transform', d => `translate(${d.x},${d.y})`);
+  gapLinkSel
+    .attr('x1', d => byId.get(d.source.id || d.source).x).attr('y1', d => byId.get(d.source.id || d.source).y)
+    .attr('x2', d => byId.get(d.target.id || d.target).x).attr('y2', d => byId.get(d.target.id || d.target).y);
+  domainLinkSel
+    .attr('x1', d => byId.get(d.paper).x).attr('y1', d => byId.get(d.paper).y)
+    .attr('x2', hub[domainLinkData[0] ? undefined : ''] ? 0 : null); // placeholder no-op guard
+  domainLinkSel.attr('x2', d => hub[d.domain].x).attr('y2', d => hub[d.domain].y);
+});
+
+/* ============================================================
+   TOOLTIP
+   ============================================================ */
+function showTooltip(e, title, meta) {
+  tooltip.style.display = 'block';
+  tooltip.innerHTML = `<div class="tt-title">${title}</div><div class="tt-meta">${meta}</div>`;
+  const rect = mainEl.getBoundingClientRect();
+  tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+  tooltip.style.top = (e.clientY - rect.top + 14) + 'px';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+/* ============================================================
+   DETAIL PANEL
+   ============================================================ */
+const dp = document.getElementById('detail-panel');
+function sourceUrl(doi) {
+  if (doi.startsWith('arXiv:')) return 'https://arxiv.org/abs/' + doi.replace('arXiv:', '');
+  return 'https://doi.org/' + doi;
+}
+function selectPaper(p) {
+  selected = p.id;
+  dp.style.display = 'block';
+  document.getElementById('dp-title').textContent = p.id + ' — ' + p.title;
+  document.getElementById('dp-year').textContent = p.year;
+  document.getElementById('dp-journal').textContent = p.journal;
+  document.getElementById('dp-doi').innerHTML = `<a id="dp-link" href="${sourceUrl(p.doi)}" rel="noopener">${p.doi} ↗</a>`;
+  document.getElementById('dp-dataset').textContent = p.dataset;
+  document.getElementById('dp-n').textContent = p.n.toLocaleString();
+  document.getElementById('dp-modality').textContent = p.modality;
+  document.getElementById('dp-model').textContent = p.model;
+  document.getElementById('dp-validation').textContent = p.validation;
+  document.getElementById('dp-metric').textContent = p.metric;
+  document.getElementById('dp-limitation').textContent = p.limitation;
+  document.getElementById('dp-gaps').innerHTML = p.gaps.map(g =>
+    `<span class="gap-badge ${gaps[g].severity >= 9 ? 'severity-high' : ''}" data-gap="${g}">${g}: ${gaps[g].title}</span>`
+  ).join('');
+  dp.querySelectorAll('[data-gap]').forEach(el => el.onclick = () => showGapDetail(el.dataset.gap));
+  refreshSelectionStyle();
+}
+function showGapDetail(gid) {
+  selected = gid;
+  const g = gaps[gid];
+  dp.style.display = 'block';
+  document.getElementById('dp-title').textContent = 'GAP ' + gid + ' — ' + g.title;
+  document.getElementById('dp-year').textContent = '—';
+  document.getElementById('dp-journal').textContent = 'Research gap (synthesized)';
+  document.getElementById('dp-doi').textContent = '—';
+  document.getElementById('dp-dataset').textContent = '—';
+  document.getElementById('dp-n').textContent = '—';
+  document.getElementById('dp-modality').textContent = '—';
+  document.getElementById('dp-model').textContent = '—';
+  document.getElementById('dp-validation').textContent = 'Severity ' + g.severity + '/10';
+  document.getElementById('dp-metric').textContent = '—';
+  document.getElementById('dp-limitation').textContent = g.description;
+  const related = papers.filter(p => p.gaps.includes(gid)).map(p => p.id);
+  document.getElementById('dp-gaps').innerHTML = related.map(id =>
+    `<span class="gap-badge" data-paper="${id}">${id}</span>`).join('') || '<span class="field-value">No linked papers</span>';
+  dp.querySelectorAll('[data-paper]').forEach(el => el.onclick = () => selectPaper(byId.get(el.dataset.paper)));
+  refreshSelectionStyle();
+}
+document.getElementById('dp-close').onclick = () => { dp.style.display = 'none'; selected = null; refreshSelectionStyle(); };
+
+function refreshSelectionStyle() {
+  paperSel.select('circle').attr('r', d => d.id === selected ? 10 : 7).attr('stroke', d => d.id === selected ? '#fff' : '#03050c').attr('stroke-width', d => d.id === selected ? 3 : 2);
+}
+
+/* ============================================================
+   FILTERS
+   ============================================================ */
+function initFilters() {
+  const df = document.getElementById('domain-filters');
+  domainKeys.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn active';
+    btn.textContent = name;
+    btn.style.borderColor = domains[name].color;
+    btn.style.color = domains[name].color;
+    btn.style.background = domains[name].color + '22';
+    btn.onclick = () => {
+      if (activeDomains.has(name)) { activeDomains.delete(name); btn.classList.remove('active'); btn.style.background = 'transparent'; btn.style.color = domains[name].color; }
+      else { activeDomains.add(name); btn.classList.add('active'); btn.style.background = domains[name].color + '22'; }
+      applyFilters();
+    };
+    df.appendChild(btn);
+  });
+
+  const gf = document.getElementById('gap-filters');
+  gapKeys.forEach(id => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn active';
+    btn.style.borderColor = 'var(--gap)'; btn.style.color = 'var(--gap)'; btn.style.background = 'var(--gap-dim)';
+    btn.textContent = id;
+    btn.title = gaps[id].title;
+    btn.onclick = () => {
+      if (activeGaps.has(id)) { activeGaps.delete(id); btn.classList.remove('active'); btn.style.background = 'transparent'; }
+      else { activeGaps.add(id); btn.classList.add('active'); btn.style.background = 'var(--gap-dim)'; }
+      applyFilters();
+    };
+    gf.appendChild(btn);
+  });
+
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.onclick = () => {
+      mode = btn.dataset.mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+      applyFilters();
+    };
+  });
+
+  document.getElementById('search').addEventListener('input', e => {
+    searchTerm = e.target.value.trim().toLowerCase();
+    applyFilters();
+  });
+}
+
+function paperVisible(p) {
+  const domOk = p.domains.some(d => activeDomains.has(d));
+  const gapOk = mode !== 'gaps' || p.gaps.some(g => activeGaps.has(g));
+  const searchOk = !searchTerm || (p.title + ' ' + p.model + ' ' + p.journal + ' ' + p.dataset).toLowerCase().includes(searchTerm);
+  return domOk && gapOk && searchOk;
+}
+
+function applyFilters() {
+  paperSel.style('display', d => paperVisible(d) ? null : 'none');
+  gapSel.style('display', d => activeGaps.has(d.id) ? null : 'none');
+  halos.style('display', k => activeDomains.has(k) ? null : 'none');
+  domLabels.style('display', k => activeDomains.has(k) ? null : 'none');
+  domainLinkSel.style('display', d => (activeDomains.has(d.domain) && paperVisible(byId.get(d.paper))) ? null : 'none');
+  gapLinkSel.style('display', d => {
+    const src = byId.get(d.source.id || d.source), tgt = byId.get(d.target.id || d.target);
+    const p = src.kind === 'paper' ? src : tgt;
+    const g = src.kind === 'gap' ? src : tgt;
+    return (activeGaps.has(g.id) && paperVisible(p)) ? null : 'none';
+  });
+  updateStats();
+}
+
+/* ============================================================
+   STATS
+   ============================================================ */
+function updateStats() {
+  const visible = papers.filter(paperVisible).length;
+  const row = document.getElementById('stat-row');
+  row.innerHTML = `
+    <div class="stat-chip"><div class="num">${visible}<span style="color:var(--muted);font-size:.7rem">/${papers.length}</span></div><div class="lbl">Papers shown</div></div>
+    <div class="stat-chip"><div class="num">${gapKeys.length}</div><div class="lbl">Research gaps</div></div>
+    <div class="stat-chip"><div class="num">${domainKeys.length}</div><div class="lbl">Domains</div></div>
+  `;
+}
+
+/* ============================================================
+   LEGEND
+   ============================================================ */
+function initLegend() {
+  const leg = document.getElementById('legend');
+  let html = '<div class="lt">Legend</div>';
+  domainKeys.forEach(name => { html += `<div class="legend-item"><div class="legend-dot" style="background:${domains[name].color}"></div>${name}</div>`; });
+  html += `<div class="legend-item"><div class="legend-dot" style="background:var(--gap)"></div>Research gap (size = severity)</div>`;
+  leg.innerHTML = html;
+}
+
+/* ============================================================
+   MOBILE SIDEBAR TOGGLE
+   ============================================================ */
+document.getElementById('sidebar-toggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+
+/* ============================================================
+   RESIZE
+   ============================================================ */
+window.addEventListener('resize', () => {
+  computeAnchors();
+  positionHalos();
+  simulation.force('x', d3.forceX(d => d.kind === 'paper' ? paperTarget(d, 'x') : ring[d.id].x).strength(d => d.kind === 'paper' ? 0.12 : 0.22));
+  simulation.force('y', d3.forceY(d => d.kind === 'paper' ? paperTarget(d, 'y') : ring[d.id].y).strength(d => d.kind === 'paper' ? 0.12 : 0.22));
+  simulation.alpha(0.6).restart();
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+initFilters();
+initLegend();
+updateStats();
+</script>
+</body>
+</html>
