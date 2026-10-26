@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroFusion-SZ · Brain Atlas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='15' rx='12' ry='10' fill='%23f5b942'/%3E%3Cpath d='M16 6v18' stroke='%2303050c' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+:root {
+  --bg: #060a16;
+  --bg-deep: #03050c;
+  --panel: #0c1223;
+  --panel-2: #0f1830;
+  --border: #1c2743;
+  --text: #e8ecf8;
+  --muted: #7c88ab;
+  --muted-2: #4d5878;
+  --gold: #f5b942;
+  --gold-dim: #f5b94255;
+  --gap: #fb6f92;
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+::selection { background: var(--gold-dim); }
+button { font-family: inherit; }
+
+/* ---------- Sidebar ---------- */
+#sidebar {
+  width: 380px; min-width: 380px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 24px 22px 32px;
+  overflow-y: auto;
+  position: relative; z-index: 5;
+  transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+}
+#sidebar::-webkit-scrollbar { width: 8px; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.eyebrow { font-size: 0.68rem; letter-spacing: 0.18em; color: var(--muted-2); text-transform: uppercase; margin-bottom: 8px; }
+#sidebar h1 { font-family: var(--sans); font-size: 1.55rem; font-weight: 700; line-height: 1.15; }
+#sidebar h1 span { color: var(--gold); }
+.subtitle { font-size: 0.78rem; color: var(--muted); margin: 6px 0 20px; line-height: 1.5; }
+.group { margin-bottom: 20px; }
+.group-label { display: block; font-size: 0.66rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+.seg { display: flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; background: transparent; border: none; color: var(--muted); font-size: 0.74rem; padding: 7px 6px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+.seg button:hover { color: var(--text); }
+.seg button.active { background: var(--gold); color: var(--bg-deep); font-weight: 600; }
+
+.slider-row { display: flex; align-items: center; gap: 12px; }
+input[type=range] { flex: 1; accent-color: var(--gold); }
+#k-val { font-family: var(--sans); font-weight: 700; color: var(--gold); min-width: 34px; text-align: right; }
+.hint { font-size: 0.68rem; color: var(--muted-2); margin-top: 6px; line-height: 1.5; }
+
+.item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; }
+.item:hover { background: var(--panel-2); }
+.item.selected { background: var(--panel-2); border-color: var(--border); }
+.item input { accent-color: var(--gold); cursor: pointer; }
+.swatch { width: 18px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+.swatch.dashed { background: none !important; border-top: 3px dashed; height: 0; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.item-name { font-size: 0.76rem; color: var(--text); flex: 1; line-height: 1.3; }
+.chip { font-size: 0.6rem; padding: 2px 7px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.chip.up { color: #ffb4c4; border-color: #fb6f9266; }
+.chip.down { color: #9ec5ff; border-color: #5b8def66; }
+.struct-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
+
+#detail {
+  margin-top: 4px; padding: 16px; background: var(--panel-2);
+  border-radius: 10px; border: 1px solid var(--border);
+  font-size: 0.8rem; line-height: 1.55;
+  animation: rise 0.25s ease;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+#detail h3 { font-family: var(--sans); font-size: 1.02rem; line-height: 1.3; margin-bottom: 4px; }
+#detail .kind { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+#detail .f { margin-bottom: 10px; }
+#detail .fl { display: block; font-size: 0.62rem; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+#detail .fv { color: var(--text); }
+#detail .effect { font-family: var(--sans); font-weight: 600; color: var(--gold); }
+#detail a { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--gold-dim); }
+#detail a:hover { border-bottom-color: var(--gold); }
+#detail .src { display: block; margin-top: 4px; font-size: 0.72rem; }
+
+.caveat { margin-top: 20px; padding: 12px 14px; border-left: 3px solid var(--gap); background: #fb6f920f; border-radius: 0 8px 8px 0; font-size: 0.7rem; line-height: 1.6; color: #c9d1ea; }
+.caveat strong { color: var(--text); }
+
+/* ---------- Stage ---------- */
+#main { flex: 1; position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #0d1630 0%, var(--bg) 55%, var(--bg-deep) 100%); }
+#stage { position: absolute; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+#stage canvas:active { cursor: grabbing; }
+.pane-label { position: absolute; z-index: 3; pointer-events: none; font-family: var(--sans); }
+.pane-label .t { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.pane-label .s { font-size: 0.68rem; color: var(--muted); font-family: var(--mono); margin-top: 3px; }
+#lbl-ctl .t { color: #9ec5ff; }
+#lbl-sz .t { color: #ffb4c4; }
+#divider { position: absolute; z-index: 2; background: linear-gradient(var(--border), var(--border)); pointer-events: none; }
+
+.controls { position: absolute; bottom: 16px; left: 16px; display: flex; gap: 8px; z-index: 4; flex-wrap: wrap; justify-content: flex-end; }
+.ctrl-btn { background: rgba(12,18,35,0.92); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 7px; font-size: 0.7rem; cursor: pointer; transition: border-color 0.15s; }
+.ctrl-btn:hover { border-color: var(--gold); }
+.ctrl-btn.on { border-color: var(--gold); color: var(--gold); }
+
+#legend { position: absolute; bottom: 16px; right: 16px; z-index: 4; background: rgba(12,18,35,0.92); backdrop-filter: blur(6px); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; font-size: 0.68rem; color: var(--muted); }
+#legend .lt { font-family: var(--sans); font-weight: 600; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.08em; margin-bottom: 7px; }
+#legend .li { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+
+#tooltip { position: absolute; z-index: 10; pointer-events: none; display: none; background: rgba(9,13,26,0.97); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; font-size: 0.74rem; max-width: 260px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+#tooltip .tt { font-family: var(--sans); color: var(--gold); font-weight: 600; }
+#tooltip .tm { color: var(--muted); font-size: 0.68rem; margin-top: 2px; }
+
+#loading { position: absolute; inset: 0; display: grid; place-items: center; z-index: 20; color: var(--muted); font-size: 0.8rem; background: var(--bg); transition: opacity 0.5s; }
+#loading.done { opacity: 0; pointer-events: none; }
+#webgl-error { display: none; position: absolute; inset: 0; z-index: 21; place-items: center; text-align: center; padding: 24px; color: var(--muted); font-size: 0.85rem; background: var(--bg); }
+
+#sidebar-toggle { display: none; position: absolute; top: 16px; left: 16px; z-index: 6; background: rgba(12,18,35,0.92); border: 1px solid var(--border); color: var(--text); width: 38px; height: 38px; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+
+@media (max-width: 860px) {
+  #sidebar { position: absolute; inset: 0 auto 0 0; z-index: 10; transform: translateX(-100%); box-shadow: 0 0 40px rgba(0,0,0,0.6); width: 88%; min-width: 0; }
+  #sidebar.open { transform: none; }
+  #sidebar-toggle { display: block; }
+  #legend { display: none; }
+  .controls { bottom: 12px; left: 12px; }
+  .ctrl-btn { padding: 6px 9px; }
+}
+</style>
+</head>
+<body>
+
+<button id="sidebar-toggle" aria-label="Toggle panel">☰</button>
+
+<aside id="sidebar">
+  <div class="eyebrow">NeuroFusion-SZ · Neuroanatomy explorer</div>
+  <h1>Brain <span>Atlas</span></h1>
+  <div class="subtitle">Control vs schizophrenia: group-average brain structure, and the pathways that connect the brain to the body.</div>
+
+  <div class="group">
+    <span class="group-label">View</span>
+    <div class="seg" id="mode-seg">
+      <button data-mode="brain" class="active">Brain</button>
+      <button data-mode="body">Brain + body</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <span class="group-label">Exaggerate differences</span>
+    <div class="slider-row">
+      <input type="range" id="k" min="1" max="10" step="0.5" value="6" aria-label="Exaggeration factor">
+      <span id="k-val">×6</span>
+    </div>
+    <div class="hint">Shapes on the schizophrenia side are scaled from published effect sizes (Cohen's d). At ×1 the differences are hard to see, which is accurate: the two groups overlap heavily.</div>
+  </div>
+
+  <div class="group">
+    <span class="group-label">Cortex</span>
+    <div class="seg" id="cortex-seg">
+      <button data-c="glass" class="active">Glass</button>
+      <button data-c="solid">Solid</button>
+      <button data-c="hidden">Hidden</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <span class="group-label">Pathways · tick to show, click name for detail</span>
+    <div id="pathway-list"></div>
+  </div>
+
+  <div class="group">
+    <span class="group-label">Structures · <span style="color:#ffb4c4">larger</span> / <span style="color:#9ec5ff">smaller</span> in schizophrenia</span>
+    <div id="structure-list" class="struct-grid"></div>
+  </div>
+
+  <div id="detail"></div>
+
+  <div class="caveat">
+    <strong>How to read this.</strong> The "schizophrenia" brain is an illustration of <em>average group differences</em> from large studies, not any one person's brain, and it cannot be used to diagnose anyone. Pathway activity on the right shows the direction proposed by each hypothesis; the evidence strength differs between pathways and is stated for each one. Anatomy is simplified and not to scale.
+  </div>
+</aside>
+
+<main id="main">
+  <div id="stage"></div>
+  <div id="divider"></div>
+  <div class="pane-label" id="lbl-ctl"><div class="t">Control</div><div class="s">Typical group average</div></div>
+  <div class="pane-label" id="lbl-sz"><div class="t">Schizophrenia</div><div class="s" id="lbl-sz-sub">Group differences ×6</div></div>
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-reset">Reset view</button>
+    <button class="ctrl-btn" id="btn-rotate">Auto-rotate</button>
+    <button class="ctrl-btn on" id="btn-labels">Labels</button>
+  </div>
+  <div id="legend">
+    <div class="lt">Legend</div>
+    <div class="li"><span class="swatch" style="background:#e8ecf8"></span>Nerve pathway (signals along neurons)</div>
+    <div class="li"><span class="swatch dashed" style="border-color:#e8ecf8"></span>Hormonal route (carried in the blood)</div>
+    <div class="li"><span class="dot" style="background:#e8ecf8;box-shadow:0 0 6px #fff"></span>Moving dots = relative activity</div>
+  </div>
+  <div id="tooltip"></div>
+  <div id="loading">Building 3D brain…</div>
+  <div id="webgl-error">This page needs WebGL to draw the 3D brain.<br>Try a recent version of Chrome, Edge, Firefox or Safari.</div>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   SOURCES
+   ============================================================ */
+const SRC = {
+  VE16: { label: 'van Erp et al. 2016, Molecular Psychiatry (ENIGMA, 2,028 patients)', url: 'https://doi.org/10.1038/mp.2015.63' },
+  VE18: { label: 'van Erp et al. 2018, Biological Psychiatry (ENIGMA, 4,474 patients)', url: 'https://doi.org/10.1016/j.biopsych.2018.04.023' },
+  HK09: { label: 'Howes & Kapur 2009, Schizophrenia Bulletin (dopamine hypothesis v3)', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC2669582/' },
+  HN16: { label: 'Howes & Nour 2016, World Psychiatry (aberrant salience)', url: 'https://doi.org/10.1002/wps.20276' },
+  MJ12: { label: 'Moghaddam & Javitt 2012, Neuropsychopharmacology (glutamate hypothesis)', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3238069/' },
+  WD97: { label: 'Walker & Diforio 1997, Psychological Review (diathesis–stress model)', url: 'https://doi.org/10.1037/0033-295x.104.4.667' },
+  CL16: { label: 'Clamor et al. 2016, British Journal of Psychiatry (HRV meta-analysis)', url: 'https://doi.org/10.1192/bjp.bp.114.160762' },
+};
+
+/* ============================================================
+   STRUCTURES  (d = Cohen's d, schizophrenia vs control)
+   ============================================================ */
+const STRUCTURES = {
+  cortex:      { name: 'Cerebral cortex', color: '#d9a6a0', d: -0.53,
+    role: 'The outer layer of grey matter: perception, thinking, planning and language.',
+    sz: 'Thinner on average across most of the brain, with the largest differences in frontal and temporal regions. Surface area is also slightly smaller (d = −0.25).',
+    effect: 'Cortical thickness d = −0.53', src: ['VE18'] },
+  ventricles:  { name: 'Lateral ventricles', color: '#5eead4', d: +0.37,
+    role: 'Fluid-filled spaces deep in each hemisphere, holding cerebrospinal fluid.',
+    sz: 'Larger on average. Enlarged ventricles were one of the first brain differences ever reported in schizophrenia and remain one of the most replicated.',
+    effect: 'Volume d = +0.37 (larger)', src: ['VE16'] },
+  hippocampus: { name: 'Hippocampus', color: '#f5b942', d: -0.46,
+    role: 'Forms new memories and places them in context. Rich in cortisol receptors, so it is sensitive to stress hormones.',
+    sz: 'Smaller on average: the largest subcortical difference in the ENIGMA study. It is also the end point of the cortisol route in the HPA stress pathway.',
+    effect: 'Volume d = −0.46 (smaller)', src: ['VE16'] },
+  amygdala:    { name: 'Amygdala', color: '#fb6f92', d: -0.31,
+    role: 'Emotion, threat detection and judging what matters (salience).',
+    sz: 'Smaller on average. Receives mesolimbic dopamine.',
+    effect: 'Volume d = −0.31 (smaller)', src: ['VE16'] },
+  thalamus:    { name: 'Thalamus', color: '#a78bfa', d: -0.31,
+    role: 'Relay and filtering hub between the senses, the cortex and deeper structures.',
+    sz: 'Smaller on average. Part of the cortex–thalamus glutamate loop proposed to be disrupted in schizophrenia.',
+    effect: 'Volume d = −0.31 (smaller)', src: ['VE16'] },
+  accumbens:   { name: 'Nucleus accumbens', color: '#f97316', d: -0.25,
+    role: 'Reward and motivation. The main target of the mesolimbic dopamine pathway.',
+    sz: 'Smaller on average.',
+    effect: 'Volume d = −0.25 (smaller)', src: ['VE16'] },
+  pallidum:    { name: 'Globus pallidus', color: '#60a5fa', d: +0.21,
+    role: 'The output stage of the basal ganglia; shapes movement.',
+    sz: 'Larger on average.',
+    effect: 'Volume d = +0.21 (larger)', src: ['VE16'] },
+  putamen:     { name: 'Putamen', color: '#38bdf8', d: 0,
+    role: 'Movement and habit learning. Receives nigrostriatal dopamine.',
+    sz: 'Not significantly different on average, but larger volume was associated with longer illness duration.',
+    effect: 'No significant average difference', src: ['VE16'] },
+  caudate:     { name: 'Caudate (associative striatum)', color: '#e879f9', d: 0,
+    role: 'Links thinking to action: planning, learning and goal-directed behaviour.',
+    sz: 'Not among the significant volume differences. Its head lies in the associative striatum, where PET studies find the clearest increase in dopamine synthesis.',
+    effect: 'No significant average volume difference', src: ['VE16', 'HK09'] },
+  vta:         { name: 'Ventral tegmental area', color: '#ef4444', d: 0,
+    role: 'A cluster of dopamine neurons in the midbrain projecting to limbic areas and the prefrontal cortex.',
+    sz: 'Origin of the mesolimbic and mesocortical dopamine pathways.', effect: null, src: ['HK09'] },
+  sn:          { name: 'Substantia nigra', color: '#b91c1c', d: 0,
+    role: 'Midbrain dopamine neurons projecting to the dorsal striatum.',
+    sz: 'Origin of the nigrostriatal pathway and much of the dopamine input to the associative striatum.', effect: null, src: ['HK09'] },
+  hypothalamus:{ name: 'Hypothalamus', color: '#fde68a', d: 0,
+    role: 'Controls hormones, stress responses, hunger and temperature: the main link between the brain and the endocrine system.',
+    sz: 'Starts the HPA stress response, and releases the dopamine that keeps prolactin in check (tuberoinfundibular pathway).', effect: null, src: ['WD97'] },
+  pituitary:   { name: 'Pituitary gland', color: '#fcd34d', d: 0,
+    role: 'A gland below the brain that releases hormones into the blood, including ACTH and prolactin.',
+    sz: 'Relay point of both hormonal pathways shown here.', effect: null, src: ['WD97'] },
+  brainstem:   { name: 'Brainstem', color: '#c4a59d', d: 0,
+    role: 'Connects the brain to the spinal cord and runs automatic functions such as breathing and heart rate. The vagus nerve starts here.',
+    sz: 'Home of the vagal nuclei whose reduced activity shows up as lower heart rate variability.', effect: null, src: ['CL16'] },
+  cerebellum:  { name: 'Cerebellum', color: '#c99a92', d: 0,
+    role: 'Coordinates and times movement, and contributes to thinking.',
+    sz: 'Not part of the ENIGMA analyses shown on this page, so it is drawn unchanged.', effect: null, src: [] },
+  spinalcord:  { name: 'Spinal cord', color: '#e2c3bd', d: 0, body: true,
+    role: 'Carries movement commands from the brain to the body, and sensations back.',
+    sz: 'Not a site of schizophrenia. It carries movement signals shaped by the basal ganglia, which is why antipsychotic side effects can appear as stiffness, tremor or restlessness.', effect: null, src: [] },
+  heart:       { name: 'Heart', color: '#f43f5e', d: 0, body: true,
+    role: 'The vagus nerve slows the heart beat by beat; heart rate variability (HRV) measures that vagal control.',
+    sz: 'Resting HRV is clearly lower in schizophrenia, indicating reduced vagal activity.',
+    effect: 'High-frequency HRV g = −0.98 (lower)', src: ['CL16'] },
+  adrenal:     { name: 'Adrenal glands', color: '#fbbf24', d: 0, body: true,
+    role: 'Glands on top of the kidneys. They release cortisol when ACTH arrives through the blood.',
+    sz: 'The body end of the HPA stress axis.', effect: null, src: ['WD97'] },
+};
+
+/* ============================================================
+   PATHWAYS
+   rate = relative activity drawn on the schizophrenia side (control = 1)
+   ============================================================ */
+const PATHWAYS = {
+  assoc: { name: 'Associative striatum dopamine', color: '#ff5a36', type: 'neural', rate: 2.2,
+    route: 'Substantia nigra / VTA → caudate head (associative striatum)',
+    role: 'Dopamine input to the part of the striatum that links thinking, learning and action.',
+    sz: 'The strongest imaging evidence in schizophrenia: dopamine synthesis and release are increased here, and are already raised in some people at high clinical risk. Antipsychotics are thought to act on psychosis mainly by blocking D2 receptors in this region.',
+    evidence: 'Strong · PET meta-analyses', dir: 'up', src: ['HK09'] },
+  meso: { name: 'Mesolimbic dopamine', color: '#fb923c', type: 'neural', rate: 1.6,
+    route: 'VTA → nucleus accumbens, amygdala, hippocampus',
+    role: 'Reward, motivation and tagging experiences as important (salience).',
+    sz: 'The classic dopamine hypothesis puts excess dopamine here, causing ordinary experiences to feel significant and contributing to delusions and hallucinations. Imaging now places most of the excess in the associative striatum instead.',
+    evidence: 'Moderate · classic hypothesis, refined by PET', dir: 'up', src: ['HK09', 'HN16'] },
+  mesocort: { name: 'Mesocortical dopamine', color: '#60a5fa', type: 'neural', rate: 0.45,
+    route: 'VTA → prefrontal cortex',
+    role: 'Supports working memory, planning and motivation.',
+    sz: 'Thought to be under-active, contributing to negative symptoms (low motivation, flat emotion) and cognitive difficulties. Direct evidence in humans is weaker than for the striatum.',
+    evidence: 'Weaker · mostly indirect', dir: 'down', src: ['HK09'] },
+  glut: { name: 'Glutamate cortex–thalamus loop', color: '#c084fc', type: 'neural', rate: 0.5,
+    route: 'Prefrontal cortex ⇄ thalamus; hippocampus → prefrontal cortex',
+    role: 'Glutamate is the brain\'s main excitatory signal, linking cortex, thalamus and hippocampus.',
+    sz: 'The NMDA-receptor hypofunction hypothesis: weaker glutamate signalling through NMDA receptors may disturb these loops and, downstream, drive the dopamine excess. Drugs that block NMDA receptors, such as ketamine, can produce psychosis-like symptoms in healthy people.',
+    evidence: 'Moderate · hypothesis', dir: 'down', src: ['MJ12'] },
+  nigro: { name: 'Nigrostriatal dopamine → movement', color: '#38bdf8', type: 'neural', rate: 1.0,
+    route: 'Substantia nigra → putamen; motor cortex → spinal cord → muscles',
+    role: 'Starts and controls movement. The basal ganglia shape motor commands that travel down the spinal cord.',
+    sz: 'Largely normal in the illness itself, so it is drawn at normal activity. Antipsychotics block D2 receptors here too, which can cause movement side effects; those reach the body through the spinal cord.',
+    evidence: 'Pharmacology · drug side effects', dir: 'same', src: ['HK09'] },
+  tida: { name: 'Tuberoinfundibular dopamine → prolactin', color: '#facc15', type: 'mixed', rate: 1.0,
+    route: 'Hypothalamus → pituitary (nerve); pituitary → prolactin in blood → breast and reproductive organs',
+    role: 'Dopamine from the hypothalamus stops the pituitary releasing too much prolactin.',
+    sz: 'Usually normal before treatment, so drawn at normal activity. Antipsychotics block this dopamine signal, so prolactin can rise, affecting breast tissue, periods and fertility.',
+    evidence: 'Pharmacology · drug side effects', dir: 'same', src: [] },
+  hpa: { name: 'HPA stress axis', color: '#fbbf24', type: 'mixed', rate: 1.6,
+    route: 'Hypothalamus → pituitary → ACTH in blood → adrenal glands → cortisol in blood → hippocampus',
+    role: 'The body\'s main hormonal stress response.',
+    sz: 'The neural diathesis–stress model proposes that stress, acting through cortisol, worsens dopamine dysregulation in vulnerable people. Raised HPA activity has been reported, including before illness onset.',
+    evidence: 'Moderate · model with mixed findings', dir: 'up', src: ['WD97'] },
+  vagal: { name: 'Vagus nerve → heart', color: '#f43f5e', type: 'neural', rate: 0.45,
+    route: 'Brainstem (medulla) → vagus nerve → heart and gut',
+    role: 'Parasympathetic "rest and digest" control: slows the heart and regulates the organs.',
+    sz: 'Resting vagal activity is reduced, measured as lower heart rate variability. The meta-analysis found a large effect across many studies.',
+    evidence: 'Strong · meta-analysis (HRV g = −0.98)', dir: 'down', src: ['CL16'] },
+};
+
+/* ============================================================
+   NOISE
+   ============================================================ */
+const perm = new Uint8Array(512);
+(function seed(s) {
+  const p = [...Array(256).keys()];
+  for (let i = 255; i > 0; i--) { s = (s * 16807) % 2147483647; const j = s % (i + 1); [p[i], p[j]] = [p[j], p[i]]; }
+  for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+})(20261026);
+const G3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+const mix = (a, b, t) => a + t * (b - a);
+function noise3(x, y, z) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+  x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+  const u = fade(x), v = fade(y), w = fade(z);
+  const g = (h, a, b, c) => { const q = G3[h % 12]; return q[0] * a + q[1] * b + q[2] * c; };
+  const A = perm[X] + Y, AA = perm[A] + Z, AB = perm[A + 1] + Z, B = perm[X + 1] + Y, BA = perm[B] + Z, BB = perm[B + 1] + Z;
+  return mix(mix(mix(g(perm[AA], x, y, z), g(perm[BA], x - 1, y, z), u), mix(g(perm[AB], x, y - 1, z), g(perm[BB], x - 1, y - 1, z), u), v),
+             mix(mix(g(perm[AA + 1], x, y, z - 1), g(perm[BA + 1], x - 1, y, z - 1), u), mix(g(perm[AB + 1], x, y - 1, z - 1), g(perm[BB + 1], x - 1, y - 1, z - 1), u), v), w);
+}
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/* ============================================================
+   GEOMETRY HELPERS
+   ============================================================ */
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const curve = pts => new THREE.CatmullRomCurve3(pts.map(p => V(...p)), false, 'centripetal');
+
+function taperTube(c, rFn, tub = 64, rad = 16) {
+  const geo = new THREE.TubeGeometry(c, tub, 1, rad, false);
+  const pos = geo.attributes.position;
+  const p = new THREE.Vector3();
+  for (let i = 0; i <= tub; i++) {
+    const t = i / tub;
+    const center = c.getPointAt(t);
+    const r = rFn(t);
+    for (let j = 0; j <= rad; j++) {
+      const idx = i * (rad + 1) + j;
+      p.fromBufferAttribute(pos, idx).sub(center).multiplyScalar(r).add(center);
+      pos.setXYZ(idx, p.x, p.y, p.z);
+    }
+  }
+  // round the ends
+  geo.computeVertexNormals();
+  return geo;
+}
+function centered(geo) {
+  geo.computeBoundingBox();
+  const c = new THREE.Vector3(); geo.boundingBox.getCenter(c);
+  geo.translate(-c.x, -c.y, -c.z);
+  return c;
+}
+function ellipsoid(rx, ry, rz, seg = 40) {
+  const g = new THREE.SphereGeometry(1, seg, Math.round(seg * 0.75));
+  g.scale(rx, ry, rz);
+  return g;
+}
+
+/* ============================================================
+   CORTEX (procedural hemispheres with gyri)
+   ============================================================ */
+const RX = 3.6, RY = 4.0, RZ = 6.2, A_DISP = 0.34;
+function buildHemisphereData(side) {
+  const g = new THREE.SphereGeometry(1, 200, 150);
+  const pos = g.attributes.position;
+  const n = pos.count;
+  const base = new Float32Array(n * 3), nrm = new Float32Array(n * 3), h = new Float32Array(n), w = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const nx = x / RX, ny = y / RY, nz = z / RZ, nl = Math.hypot(nx, ny, nz);
+    let bx = x * RX, by = y * RY, bz = z * RZ;
+    if (bx * side < 0) bx *= 0.32;                      // flat medial wall
+    if (by < 0) by *= 0.74;                             // flatter base
+    bx *= 1 - 0.16 * Math.max(0, bz / RZ);              // narrower frontal lobe
+    const tp = Math.exp(-((bz - 1.6) ** 2) / 7 - ((by + 1.9) ** 2) / 1.6) * (bx * side > 0 ? 1 : 0.3);
+    by -= 0.9 * tp; bx += side * 0.35 * tp;            // temporal lobe bulge
+    by += 0.5 * Math.exp(-((bz + 0.5) ** 2) / 10) * Math.max(0, y); // fuller crown
+    bx += side * 1.3;
+    // gyri: domain-warped noise, sulci are thin valleys where noise ≈ 0
+    const s = 0.62;
+    const wx = bx + 0.9 * noise3(bx * 0.25 + 11, by * 0.25, bz * 0.25);
+    const wy = by + 0.9 * noise3(bx * 0.25, by * 0.25 + 23, bz * 0.25);
+    const wz = bz + 0.9 * noise3(bx * 0.25, by * 0.25, bz * 0.25 + 37);
+    const n1 = Math.abs(noise3(wx * s, wy * s, wz * s));
+    const n2 = Math.abs(noise3(wx * s * 2.1 + 5, wy * s * 2.1, wz * s * 2.1));
+    let hh = 0.78 * Math.pow(Math.min(1, n1 * 3.0), 0.55) + 0.22 * Math.pow(Math.min(1, n2 * 3.0), 0.6);
+    // the medial wall and the base are smoother
+    hh = mix(hh, 0.7, (bx * side < 1.4 ? 0.65 : 0) );
+    // longitudinal "Sylvian" fissure above the temporal lobe
+    const sylv = Math.exp(-((by + 0.55 - 0.18 * bz) ** 2) / 0.05) * smooth(-1.5, 1.5, bz) * (bx * side > 2.6 ? 1 : 0);
+    hh = Math.min(hh, 1 - sylv);
+    base[i * 3] = bx; base[i * 3 + 1] = by; base[i * 3 + 2] = bz;
+    nrm[i * 3] = nx / nl; nrm[i * 3 + 1] = ny / nl; nrm[i * 3 + 2] = nz / nl;
+    if (bx * side < 0.6) { nrm[i * 3] = -side; nrm[i * 3 + 1] *= 0.2; nrm[i * 3 + 2] *= 0.2; }
+    h[i] = hh;
+    const frontal = smooth(1.2, 5.2, bz);
+    const temporal = Math.exp(-((by + 1.9) ** 2) / 2.2) * (bz > -2.8 ? 1 : 0) * (bx * side > 2.2 ? 1 : 0);
+    w[i] = Math.max(frontal, temporal);
+  }
+  return { g, base, nrm, h, w };
+}
+function applyCortex(data, k, sz) {
+  const { g, base, nrm, h, w } = data;
+  const pos = g.attributes.position;
+  const col = g.attributes.color || new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3);
+  const d = 0.53, gyr = new THREE.Color('#e3b1a8'), sul = new THREE.Color('#5c3442'), c = new THREE.Color();
+  const thin = sz ? d * 0.1 * k : 0;          // sulcal widening / gyral thinning
+  const shrink = sz ? d * 0.016 * k : 0;      // frontal & temporal volume loss
+  for (let i = 0; i < pos.count; i++) {
+    let hh = h[i];
+    if (sz) hh = Math.pow(hh, 1 + thin * 1.6);
+    const disp = A_DISP * hh - (sz ? (1 - hh) * A_DISP * thin * 1.2 : 0);
+    const sc = 1 - shrink * w[i];
+    pos.setXYZ(i, base[i * 3] * sc + nrm[i * 3] * disp, base[i * 3 + 1] * sc + nrm[i * 3 + 1] * disp, base[i * 3 + 2] * sc + nrm[i * 3 + 2] * disp);
+    c.copy(sul).lerp(gyr, Math.pow(hh, 0.8));
+    col.setXYZ(i, c.r, c.g, c.b);
+  }
+  if (!g.attributes.color) g.setAttribute('color', col);
+  pos.needsUpdate = true; col.needsUpdate = true;
+  g.computeVertexNormals();
+}
+
+/* ============================================================
+   SCENE BUILDER
+   ============================================================ */
+function makeLabelSprite(text, color = '#e8ecf8') {
+  const cv = document.createElement('canvas');
+  const ctx = cv.getContext('2d');
+  const font = '600 44px "Space Grotesk", system-ui, sans-serif';
+  ctx.font = font;
+  const tw = Math.ceil(ctx.measureText(text).width);
+  cv.width = tw + 40; cv.height = 72;
+  ctx.font = font;
+  ctx.fillStyle = 'rgba(6,10,22,0.78)';
+  const r = 18; ctx.beginPath(); ctx.roundRect(0, 4, cv.width, 64, r); ctx.fill();
+  ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.fillText(text, 20, 38);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
+  const s = new THREE.Sprite(m);
+  s.userData.aspect = cv.width / cv.height;
+  s.renderOrder = 10;
+  return s;
+}
+
+function buildView(isSZ) {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xdbe4ff, 0x20141a, 0.9));
+  const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(10, 14, 12); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x7aa2ff, 1.1); rim.position.set(-12, 4, -14); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xffd6c8, 0.4); fill.position.set(-8, -10, 8); scene.add(fill);
+
+  const view = { scene, isSZ, meshes: {}, pick: [], labels: [], paths: {}, body: new THREE.Group(), cortex: [] };
+  const add = (id, mesh, group = scene) => {
+    mesh.userData.id = id;
+    (view.meshes[id] = view.meshes[id] || []).push(mesh);
+    view.pick.push(mesh);
+    group.add(mesh);
+    return mesh;
+  };
+  const mat = (hex, extra = {}) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.5, metalness: 0.05, ...extra });
+
+  // --- cortex
+  for (const side of [-1, 1]) {
+    const data = buildHemisphereData(side);
+    applyCortex(data, 4, isSZ);
+    const m = new THREE.Mesh(data.g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
+    m.renderOrder = 5;
+    m.userData.cortexData = data;
+    add('cortex', m);
+    view.cortex.push(m);
+  }
+  // --- cerebellum
+  {
+    const g = new THREE.SphereGeometry(1, 120, 80);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      let x = p.getX(i) * 3.3, y = p.getY(i) * 1.35, z = p.getZ(i) * 1.8;
+      x *= 1 - 0.12 * Math.exp(-(x * x) / 0.6) * (y > 0 ? 1 : 0.4);   // midline notch
+      const f = 0.06 * Math.sin(y * 13 + 1.5 * noise3(x * 0.6, y * 0.6, z * 0.6));
+      const l = Math.hypot(x / 3.3, y / 1.35, z / 1.8) || 1;
+      p.setXYZ(i, x + (x / 3.3 / l) * f, y + (y / 1.35 / l) * f, z + (z / 1.8 / l) * f);
+    }
+    g.computeVertexNormals();
+    const m = add('cerebellum', new THREE.Mesh(g, mat('#c99a92', { roughness: 0.7 })));
+    m.position.set(0, -2.85, -4.3); m.rotation.x = 0.25;
+  }
+  // --- brainstem
+  {
+    const c = curve([[0, -0.6, -0.8], [0, -1.8, -1.2], [0, -3.4, -1.7], [0, -5.2, -2.1], [0, -7.0, -2.4]]);
+    add('brainstem', new THREE.Mesh(taperTube(c, t => 0.95 - 0.35 * t), mat('#c4a59d', { roughness: 0.7 })));
+    const pons = add('brainstem', new THREE.Mesh(ellipsoid(1.05, 0.85, 0.85), mat('#c4a59d', { roughness: 0.7 })));
+    pons.position.set(0, -2.8, -1.1);
+  }
+  // --- bilateral subcortical structures
+  const scaled = [];   // meshes whose size depends on effect size
+  const addScaled = (id, geo, color, pos, extra) => {
+    const m = add(id, new THREE.Mesh(geo, mat(color, extra)));
+    m.position.copy(pos);
+    if (STRUCTURES[id].d) scaled.push(m);
+    return m;
+  };
+  for (const s of [-1, 1]) {
+    // lateral ventricle (C-shaped)
+    {
+      const c = curve([[s * 0.55, 1.2, 2.7], [s * 0.6, 1.75, 1.1], [s * 0.75, 1.85, -0.8], [s * 1.5, 1.1, -2.6], [s * 2.15, -0.3, -1.9], [s * 2.4, -1.2, 0.1], [s * 2.35, -1.45, 1.25]]);
+      const g = taperTube(c, t => (t < 0.55 ? 0.42 : 0.42 - 0.34 * (t - 0.55) / 0.45) * (1 - 0.35 * Math.pow(1 - t, 6)));
+      g.scale(1, 0.8, 1);
+      const ctr = centered(g);
+      addScaled('ventricles', g, '#5eead4', ctr, { transparent: true, opacity: 0.82, emissive: '#0f766e', emissiveIntensity: 0.25 });
+    }
+    // hippocampus
+    {
+      const c = curve([[s * 1.75, 0.0, -2.45], [s * 2.1, -1.0, -1.25], [s * 2.25, -1.7, 0.2], [s * 2.15, -1.95, 1.3]]);
+      const g = taperTube(c, t => 0.2 + 0.32 * t - 0.12 * Math.pow(t, 6));
+      const ctr = centered(g);
+      addScaled('hippocampus', g, '#f5b942', ctr);
+    }
+    addScaled('amygdala', ellipsoid(0.42, 0.42, 0.5), '#fb6f92', V(s * 2.05, -1.85, 2.15));
+    addScaled('thalamus', ellipsoid(0.58, 0.6, 1.0), '#a78bfa', V(s * 0.72, 0.4, -0.55));
+    addScaled('putamen', ellipsoid(0.42, 0.8, 1.2), '#38bdf8', V(s * 2.0, 0.35, 1.0));
+    addScaled('pallidum', ellipsoid(0.3, 0.5, 0.62), '#60a5fa', V(s * 1.5, 0.2, 0.6));
+    addScaled('accumbens', ellipsoid(0.32, 0.3, 0.36), '#f97316', V(s * 0.9, -0.35, 2.3));
+    {
+      const c = curve([[s * 1.05, 1.0, 2.5], [s * 1.18, 1.55, 0.9], [s * 1.45, 1.45, -0.8], [s * 1.9, 0.7, -2.0]]);
+      const g = taperTube(c, t => 0.58 - 0.45 * t);
+      const ctr = centered(g);
+      addScaled('caudate', g, '#e879f9', ctr);
+    }
+    addScaled('vta', ellipsoid(0.2, 0.18, 0.24), '#ef4444', V(s * 0.28, -1.3, -0.55), { emissive: '#7f1d1d', emissiveIntensity: 0.6 });
+    addScaled('sn', ellipsoid(0.38, 0.12, 0.26), '#b91c1c', V(s * 0.72, -1.35, -0.8), { emissive: '#450a0a', emissiveIntensity: 0.6 });
+  }
+  addScaled('hypothalamus', ellipsoid(0.55, 0.38, 0.55), '#fde68a', V(0, -0.95, 1.05));
+  {
+    const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.9, 10), mat('#fcd34d'));
+    stalk.position.set(0, -1.75, 1.3); stalk.rotation.x = 0.35;
+    add('pituitary', stalk);
+    addScaled('pituitary', ellipsoid(0.32, 0.26, 0.3), '#fcd34d', V(0, -2.3, 1.5));
+  }
+  view.scaled = scaled;
+  scaled.forEach(m => m.userData.baseScale = 1);
+
+  // --- body (only visible in "Brain + body")
+  const B = view.body; B.visible = false; scene.add(B);
+  const ghost = new THREE.MeshStandardMaterial({ color: '#8fa3d9', transparent: true, opacity: 0.07, roughness: 0.3, depthWrite: false, side: THREE.DoubleSide });
+  const ghostEdge = new THREE.MeshBasicMaterial({ color: '#8fa3d9', wireframe: true, transparent: true, opacity: 0.05 });
+  const ghostPart = (geo, x, y, z) => {
+    for (const m of [new THREE.Mesh(geo, ghost), new THREE.Mesh(geo, ghostEdge)]) { m.position.set(x, y, z); m.renderOrder = 6; B.add(m); }
+  };
+  const capsule = (r, len, sx = 1, sz = 1) => { const g = new THREE.CapsuleGeometry(r, len, 8, 24); g.scale(sx, 1, sz); return g; };
+  ghostPart(ellipsoid(6.2, 7.6, 8.0, 32), 0, 0.4, 0.2);            // head
+  ghostPart(capsule(3.0, 6, 1, 1), 0, -10.5, -1.2);                  // neck
+  ghostPart(capsule(9.5, 26, 1.25, 0.62), 0, -32, -0.4);             // torso
+  for (const s of [-1, 1]) {
+    const arm = capsule(2.2, 36, 1, 1); arm.rotateZ(s * 0.09);
+    ghostPart(arm, s * 15.2, -37, -0.4);
+    ghostPart(capsule(3.0, 40, 1, 1), s * 4.6, -76, -0.4);           // legs
+  }
+  const bodyMat = (hex, e = 0.35) => mat(hex, { emissive: hex, emissiveIntensity: e });
+  // spinal cord
+  {
+    const c = curve([[0, -7.0, -2.4], [0, -12, -3.4], [0, -24, -4.4], [0, -36, -4.6], [0, -46, -4.0]]);
+    add('spinalcord', new THREE.Mesh(taperTube(c, t => 0.55 - 0.2 * t, 80, 12), bodyMat('#e2c3bd', 0.15)), B);
+    // spinal nerves (arms at cervical level, legs from lumbar level)
+    const nerveMat = new THREE.MeshBasicMaterial({ color: '#e2c3bd', transparent: true, opacity: 0.45 });
+    const nerves = [];
+    for (const s of [-1, 1]) {
+      nerves.push(curve([[0, -14, -3.6], [s * 6, -15.5, -2.2], [s * 13.5, -21, -1], [s * 15.5, -36, -0.6], [s * 17.5, -54, -0.4]]));
+      nerves.push(curve([[0, -44, -4.1], [s * 2.5, -50, -3.0], [s * 4.4, -60, -1.2], [s * 4.6, -78, -0.6], [s * 4.6, -94, -0.4]]));
+    }
+    for (let i = -6; i <= 6; i++) {   // intercostal nerves (decorative)
+      if (i === 0) continue;
+      const y = -18 - Math.abs(i) * 2.6, s = Math.sign(i);
+      nerves.push(curve([[0, y, -4.4], [s * 6, y - 1, -3], [s * 10.5, y - 2.5, 0.5]]));
+    }
+    nerves.forEach((c, i) => { const m = new THREE.Mesh(new THREE.TubeGeometry(c, 40, i < 4 ? 0.22 : 0.09, 6), nerveMat); m.userData.id = 'spinalcord'; B.add(m); });
+  }
+  // heart
+  {
+    const g = new THREE.SphereGeometry(1, 48, 36);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const lobe = 1 + 0.18 * Math.exp(-((Math.abs(x) - 0.45) ** 2 + (y - 0.55) ** 2) / 0.12);
+      y = y < 0 ? y * (1.35 - 0.5 * Math.abs(x)) : y;
+      p.setXYZ(i, x * 2.4 * lobe, y * 2.6 * lobe, z * 2.0);
+    }
+    g.computeVertexNormals();
+    const m = add('heart', new THREE.Mesh(g, bodyMat('#f43f5e', 0.3)), B);
+    m.position.set(1.6, -27, 2.4); m.rotation.z = -0.45;
+    view.heart = m;
+  }
+  // kidneys + adrenal glands
+  for (const s of [-1, 1]) {
+    const k = new THREE.Mesh(ellipsoid(1.3, 2.3, 1.1, 24), mat('#9f5f5f', { roughness: 0.6 }));
+    k.position.set(s * 4.4, -45, -3.2); k.rotation.z = s * 0.2; B.add(k);
+    const a = add('adrenal', new THREE.Mesh(new THREE.ConeGeometry(0.95, 1.5, 3), bodyMat('#fbbf24', 0.4)), B);
+    a.position.set(s * 4.1, -42.3, -3.2);
+  }
+
+  // --- pathways
+  const P = (id, pts, opts = {}) => {
+    const seg = { curve: curve(pts), hormonal: !!opts.hormonal, body: !!opts.body, mirror: opts.mirror ?? false };
+    (view.paths[id] = view.paths[id] || { id, segments: [] }).segments.push(seg);
+    if (seg.mirror) {
+      const m = { ...seg, curve: curve(pts.map(([x, y, z]) => [-x, y, z])) };
+      view.paths[id].segments.push(m);
+    }
+  };
+  const mir = { mirror: true };
+  // associative striatum
+  P('assoc', [[0.62, -1.3, -0.75], [0.85, -0.6, 0.3], [0.98, 0.35, 1.5], [1.05, 1.0, 2.4]], mir);
+  // mesolimbic
+  P('meso', [[0.28, -1.3, -0.55], [0.5, -1.1, 0.7], [0.75, -0.6, 1.8], [0.9, -0.35, 2.3]], mir);
+  P('meso', [[0.28, -1.3, -0.55], [0.9, -1.6, 0.6], [1.6, -1.8, 1.6], [2.05, -1.85, 2.15]], mir);
+  P('meso', [[0.28, -1.3, -0.55], [1.0, -1.5, -0.2], [1.8, -1.6, 0.2], [2.25, -1.7, 0.2]], mir);
+  // mesocortical
+  P('mesocort', [[0.28, -1.3, -0.55], [0.45, -0.7, 0.9], [0.75, 0.6, 3.0], [1.1, 1.7, 4.6], [1.5, 2.3, 5.6]], mir);
+  // glutamate loops
+  P('glut', [[1.6, 2.4, 5.4], [1.2, 1.5, 3.0], [0.85, 0.75, 0.9], [0.72, 0.45, -0.3]], mir);
+  P('glut', [[0.72, 0.45, -0.75], [1.4, 1.6, -1.2], [2.3, 3.0, -0.4], [2.7, 3.3, 1.6]], mir);
+  P('glut', [[2.2, -1.9, 1.1], [2.0, -1.0, 2.6], [1.8, 0.6, 4.2], [1.6, 2.2, 5.3]], mir);
+  // nigrostriatal + motor output
+  P('nigro', [[0.72, -1.35, -0.8], [1.3, -0.9, -0.3], [1.75, -0.2, 0.3], [2.0, 0.35, 1.0]], mir);
+  P('nigro', [[2.4, 4.0, 0.4], [1.6, 2.0, -0.2], [1.0, 0.0, -0.9], [0.45, -2.6, -1.5], [0.3, -6.6, -2.3]], mir);
+  P('nigro', [[0.3, -6.6, -2.3], [0.15, -12, -3.4], [6, -15.5, -2.2], [13.5, -21, -1], [15.5, -36, -0.6], [17.5, -54, -0.4]], { body: true, mirror: true });
+  P('nigro', [[0.15, -12, -3.4], [0.1, -30, -4.6], [0.1, -44, -4.1], [2.5, -50, -3.0], [4.4, -60, -1.2], [4.6, -78, -0.6], [4.6, -94, -0.4]], { body: true, mirror: true });
+  // tuberoinfundibular
+  P('tida', [[0, -1.0, 1.05], [0, -1.45, 1.25], [0, -1.85, 1.38], [0, -2.25, 1.5]]);
+  P('tida', [[0, -2.3, 1.5], [-0.8, -5.5, 1.4], [-1.6, -12, 1.2], [-3.2, -19, 3.4], [-4.4, -24, 6.2]], { body: true, hormonal: true });
+  P('tida', [[0, -2.3, 1.5], [-0.8, -5.5, 1.4], [-1.4, -14, 0.8], [-2.0, -32, 2.0], [-1.0, -48, 3.2], [0, -55, 4.2]], { body: true, hormonal: true });
+  // HPA
+  P('hpa', [[0.2, -0.8, 0.9], [0.25, -1.4, 1.1], [0.2, -1.9, 1.35], [0.15, -2.25, 1.5]]);
+  P('hpa', [[0.15, -2.3, 1.5], [0.9, -5.5, 1.3], [1.8, -12, 1.1], [3.2, -24, 0.8], [3.8, -35, -1.6], [4.1, -41.6, -3.0]], { body: true, hormonal: true });
+  P('hpa', [[3.8, -41.6, -3.3], [2.8, -33, -2.8], [2.2, -18, -1.2], [1.8, -8, -0.4], [2.0, -3.5, 0.2], [2.25, -1.8, 0.4]], { body: true, hormonal: true });
+  // vagal
+  P('vagal', [[0.35, -5.2, -1.9], [0.6, -5.9, -1.8], [0.9, -6.9, -1.6]]);
+  P('vagal', [[0.9, -6.9, -1.6], [1.4, -10, -0.8], [1.7, -16, 0.2], [1.9, -22, 1.6], [1.6, -26.5, 2.4]], { body: true });
+  P('vagal', [[1.6, -26.5, 2.4], [1.2, -31, 2.2], [0.8, -38, 2.6], [1.8, -46, 3.4], [-1.0, -50, 3.2]], { body: true });
+  const vnuc = add('brainstem', new THREE.Mesh(ellipsoid(0.16, 0.3, 0.16, 16), mat('#f43f5e', { emissive: '#f43f5e', emissiveIntensity: 0.5 })));
+  vnuc.position.set(0.35, -5.2, -1.9);
+
+  for (const id in view.paths) {
+    const def = PATHWAYS[id];
+    const col = new THREE.Color(def.color);
+    const rate = isSZ ? def.rate : 1;
+    view.paths[id].rate = rate;
+    for (const seg of view.paths[id].segments) {
+      const len = seg.curve.getLength();
+      seg.len = len;
+      const grp = new THREE.Group();
+      if (seg.hormonal) {
+        const pts = seg.curve.getSpacedPoints(160);
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: col, dashSize: 0.9, gapSize: 0.7, transparent: true, opacity: 0.75 }));
+        line.computeLineDistances();
+        grp.add(line);
+      } else {
+        const tube = new THREE.Mesh(new THREE.TubeGeometry(seg.curve, Math.max(24, Math.round(len * 6)), seg.body ? 0.13 : 0.055, 6), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.4 }));
+        grp.add(tube);
+      }
+      // particles
+      const N = Math.round(Math.min(70, Math.max(8, len * (seg.body ? 1.1 : 4.5))));
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+      const pm = new THREE.PointsMaterial({ color: col, size: 0.3, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending, map: dotTexture });
+      const pts = new THREE.Points(geo, pm);
+      pts.frustumCulled = false;
+      grp.add(pts);
+      seg.points = pts; seg.N = N;
+      seg.offsets = Array.from({ length: N }, (_, i) => (i + Math.random() * 0.6) / N);
+      // activity → how many particles are drawn
+      const shown = Math.round(N * Math.min(1, 0.42 * rate));
+      geo.setDrawRange(0, Math.max(2, shown));
+      seg.lut = seg.curve.getSpacedPoints(200);
+      seg.group = grp;
+      (seg.body ? B : scene).add(grp);
+    }
+  }
+
+  // --- labels
+  const L = (id, text, x, y, z, h = 0.42, body = false) => {
+    const sp = makeLabelSprite(text);
+    sp.position.set(x, y, z);
+    sp.scale.set(h * sp.userData.aspect, h, 1);
+    sp.userData = { ...sp.userData, id, body, h };
+    view.labels.push(sp);
+    scene.add(sp);
+  };
+  L('hippocampus', 'Hippocampus', 3.9, -2.4, -0.2);
+  L('amygdala', 'Amygdala', 3.5, -2.6, 2.9);
+  L('ventricles', 'Lateral ventricle', 2.6, 2.6, -1.8);
+  L('thalamus', 'Thalamus', -2.1, 1.0, -1.3);
+  L('putamen', 'Putamen', 3.6, 0.9, 1.6);
+  L('caudate', 'Caudate', -2.3, 2.1, 2.3);
+  L('accumbens', 'N. accumbens', -2.6, -0.4, 3.4);
+  L('vta', 'VTA', -1.6, -1.7, -0.5, 0.36);
+  L('sn', 'Substantia nigra', 2.9, -1.3, -1.4, 0.36);
+  L('hypothalamus', 'Hypothalamus', 0, -0.2, 2.6, 0.36);
+  L('pituitary', 'Pituitary', 0, -3.2, 2.6, 0.36);
+  L('brainstem', 'Brainstem', -1.9, -5.6, -2.2, 0.36);
+  L('cerebellum', 'Cerebellum', 0, -4.8, -5.8, 0.4);
+  L('cortex', 'Prefrontal cortex', 0, 4.2, 6.2, 0.4);
+  L('heart', 'Heart', 6.5, -27, 3, 2.2, true);
+  L('adrenal', 'Adrenal glands', 10.5, -42, -3, 2.0, true);
+  L('spinalcord', 'Spinal cord', -6, -34, -5, 2.0, true);
+  L('vagal', 'Vagus nerve', 6.2, -16, 0.5, 2.0, true);
+  L('pituitary', 'Pituitary', -6.2, -2.8, 2.5, 2.0, true);
+  L('hpa', 'Cortisol & ACTH (blood)', 12, -32, 0, 1.8, true);
+
+  view.setK = k => {
+    for (const m of view.scaled) {
+      const d = isSZ ? (STRUCTURES[m.userData.id].d || 0) : 0;
+      m.scale.setScalar(Math.max(0.35, 1 + d * 0.09 * k));
+    }
+    for (const m of view.cortex) { applyCortex(m.userData.cortexData, k, isSZ); }
+  };
+  return view;
+}
+
+/* ============================================================
+   DOT TEXTURE for particles
+   ============================================================ */
+const dotTexture = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+
+/* ============================================================
+   APP
+   ============================================================ */
+const stage = document.getElementById('stage');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false });
+} catch (e) {
+  document.getElementById('webgl-error').style.display = 'grid';
+  document.getElementById('loading').classList.add('done');
+  throw e;
+}
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement);
+
+const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 2000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.autoRotateSpeed = 1.2;
+
+const state = { mode: 'brain', k: 6, cortex: 'glass', labels: true, visible: new Set(Object.keys(PATHWAYS)), focus: null, selected: null, vertical: false };
+const CAM = {
+  brain: { target: V(0, -0.8, 0.2), pos: V(14.5, 7.5, 17.5) },
+  body:  { target: V(0, -24, 0), pos: V(48, -4, 74) },
+};
+camera.position.copy(CAM.brain.pos); controls.target.copy(CAM.brain.target);
+
+await (document.fonts ? document.fonts.ready : Promise.resolve());
+const views = [buildView(false), buildView(true)];
+views.forEach(v => v.setK(state.k));
+document.getElementById('loading').classList.add('done');
+
+/* ---------- layout ---------- */
+function layout() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  state.vertical = w < 700;
+  const ctl = document.getElementById('lbl-ctl'), sz = document.getElementById('lbl-sz'), dv = document.getElementById('divider');
+  if (!state.vertical) {
+    ctl.style.cssText = 'left:22px;top:20px'; sz.style.cssText = `left:${w / 2 + 22}px;top:20px`;
+    dv.style.cssText = `left:${w / 2}px;top:0;width:1px;height:100%`;
+  } else {
+    ctl.style.cssText = 'left:64px;top:22px'; sz.style.cssText = `left:22px;top:${h / 2 + 14}px`;
+    dv.style.cssText = `left:0;top:${h / 2}px;height:1px;width:100%`;
+  }
+}
+window.addEventListener('resize', layout);
+layout();
+
+function viewport(i) {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  return state.vertical ? { x: 0, y: i === 0 ? h / 2 : 0, w, h: h / 2 } : { x: i * w / 2, y: 0, w: w / 2, h };
+}
+
+/* ---------- animation ---------- */
+const clock = new THREE.Clock();
+let tween = null;
+function animate() {
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+  if (tween) {
+    tween.t = Math.min(1, tween.t + dt / 1.0);
+    const e = tween.t < 0.5 ? 4 * tween.t ** 3 : 1 - (-2 * tween.t + 2) ** 3 / 2;
+    camera.position.lerpVectors(tween.p0, tween.p1, e);
+    controls.target.lerpVectors(tween.t0, tween.t1, e);
+    if (tween.t >= 1) tween = null;
+  }
+  controls.update();
+  const body = state.mode === 'body';
+  for (const v of views) {
+    for (const id in v.paths) {
+      const path = v.paths[id];
+      const on = state.visible.has(id);
+      const dim = state.focus && state.focus !== id;
+      for (const seg of path.segments) {
+        const show = on && (!seg.body || body);
+        seg.group.visible = show;
+        if (!show) continue;
+        seg.group.children.forEach(o => { if (o.material && o !== seg.points) o.material.opacity = dim ? 0.08 : (seg.hormonal ? 0.75 : 0.4); });
+        seg.points.visible = !dim;
+        seg.points.material.size = body ? 1.5 : 0.3;
+        const speed = (body ? 9 : 1.8) * path.rate / seg.len;
+        const arr = seg.points.geometry.attributes.position.array;
+        const n = seg.points.geometry.drawRange.count;
+        for (let i = 0; i < n; i++) {
+          seg.offsets[i] = (seg.offsets[i] + dt * speed) % 1;
+          const p = seg.lut[Math.floor(seg.offsets[i] * 200)];
+          arr[i * 3] = p.x; arr[i * 3 + 1] = p.y; arr[i * 3 + 2] = p.z;
+        }
+        seg.points.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+    // heart beat: slightly less variable rhythm drawn on the schizophrenia side
+    if (v.heart && v.body.visible) {
+      const hrv = v.isSZ ? 0.04 : 0.18;
+      const phase = t * (1.15 + hrv * Math.sin(t * 0.9));
+      const beat = 1 + 0.07 * Math.pow(Math.max(0, Math.sin(phase * Math.PI * 2)), 8);
+      v.heart.scale.setScalar(beat);
+    }
+    v.body.visible = body;
+    for (const sp of v.labels) {
+      const internal = !['cortex', 'cerebellum', 'brainstem'].includes(sp.userData.id);
+      sp.visible = state.labels && (sp.userData.body ? body : !body) && !(state.cortex === 'solid' && internal && !sp.userData.body);
+      if (sp.visible && sp.userData.id !== 'hpa' && sp.userData.id !== 'vagal' && PATHWAYS[sp.userData.id] === undefined) {
+        sp.material.opacity = state.selected && state.selected !== sp.userData.id ? 0.45 : 1;
+      }
+    }
+  }
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setScissorTest(true);
+  renderer.clear();
+  views.forEach((v, i) => {
+    const r = viewport(i);
+    renderer.setViewport(r.x, r.y, r.w, r.h);
+    renderer.setScissor(r.x, r.y, r.w, r.h);
+    camera.aspect = r.w / r.h;
+    camera.zoom = Math.min(1, camera.aspect / 0.88);
+    camera.updateProjectionMatrix();
+    renderer.render(v.scene, camera);
+  });
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+/* ---------- camera ---------- */
+document.getElementById('btn-reset').onclick = () => {
+  const c = CAM[state.mode];
+  tween = { t: 0, p0: camera.position.clone(), p1: c.pos.clone(), t0: controls.target.clone(), t1: c.target.clone() };
+};
+document.getElementById('btn-rotate').onclick = e => { controls.autoRotate = !controls.autoRotate; e.currentTarget.classList.toggle('on', controls.autoRotate); };
+document.getElementById('btn-labels').onclick = e => { state.labels = !state.labels; e.currentTarget.classList.toggle('on', state.labels); };
+
+/* ---------- sidebar controls ---------- */
+document.querySelectorAll('#mode-seg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#mode-seg button').forEach(x => x.classList.toggle('active', x === b));
+  state.mode = b.dataset.mode;
+  const c = CAM[state.mode];
+  tween = { t: 0, p0: camera.position.clone(), p1: c.pos.clone(), t0: controls.target.clone(), t1: c.target.clone() };
+});
+const kInput = document.getElementById('k');
+kInput.oninput = () => {
+  state.k = +kInput.value;
+  document.getElementById('k-val').textContent = '×' + state.k;
+  document.getElementById('lbl-sz-sub').textContent = 'Group differences ×' + state.k;
+  views[1].setK(state.k);
+};
+document.querySelectorAll('#cortex-seg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#cortex-seg button').forEach(x => x.classList.toggle('active', x === b));
+  state.cortex = b.dataset.c;
+  for (const v of views) for (const m of v.cortex) {
+    m.visible = state.cortex !== 'hidden';
+    const solid = state.cortex === 'solid';
+    m.material.opacity = solid ? 1 : 0.2;
+    m.material.transparent = !solid;
+    m.material.depthWrite = solid;
+    m.material.side = solid ? THREE.FrontSide : THREE.DoubleSide;
+    m.material.needsUpdate = true;
+  }
+});
+
+function buildLists() {
+  const pl = document.getElementById('pathway-list');
+  pl.innerHTML = Object.entries(PATHWAYS).map(([id, p]) => {
+    const sw = p.type === 'mixed'
+      ? `<span class="swatch" style="background:linear-gradient(90deg, ${p.color} 50%, transparent 50%), repeating-linear-gradient(90deg, ${p.color} 0 3px, transparent 3px 5px)"></span>`
+      : `<span class="swatch" style="background:${p.color}"></span>`;
+    const chip = p.dir === 'up' ? '<span class="chip up">↑ in SZ</span>' : p.dir === 'down' ? '<span class="chip down">↓ in SZ</span>' : '<span class="chip">drug effects</span>';
+    return `<div class="item" data-path="${id}"><input type="checkbox" checked aria-label="Show ${p.name}">${sw}<span class="item-name">${p.name}</span>${chip}</div>`;
+  }).join('');
+  pl.querySelectorAll('.item').forEach(el => {
+    const id = el.dataset.path, cb = el.querySelector('input');
+    cb.onclick = e => { e.stopPropagation(); cb.checked ? state.visible.add(id) : state.visible.delete(id); };
+    el.onclick = () => selectPath(id);
+  });
+  const sl = document.getElementById('structure-list');
+  sl.innerHTML = Object.entries(STRUCTURES).map(([id, s]) => {
+    const cls = s.d > 0 ? 'up' : s.d < 0 ? 'down' : '';
+    const nameColor = s.d > 0 ? '#ffb4c4' : s.d < 0 ? '#9ec5ff' : 'var(--text)';
+    return `<div class="item" data-struct="${id}"><span class="dot" style="background:${s.color}"></span><span class="item-name" style="color:${nameColor}">${s.name.replace(' (associative striatum)', '')}</span></div>`;
+  }).join('');
+  sl.querySelectorAll('.item').forEach(el => el.onclick = () => selectStructure(el.dataset.struct));
+}
+
+/* ---------- detail panel ---------- */
+const detail = document.getElementById('detail');
+const srcHtml = list => list.length ? list.map(k => `<a class="src" href="${SRC[k].url}" target="_blank" rel="noopener">${SRC[k].label} ↗</a>`).join('') : '<span class="fv" style="color:var(--muted)">Standard pharmacology / anatomy</span>';
+function selectStructure(id) {
+  const s = STRUCTURES[id];
+  state.selected = id; state.focus = null;
+  markSelected();
+  if (s.body && state.mode !== 'body') document.querySelector('#mode-seg [data-mode=body]').click();
+  detail.innerHTML = `
+    <h3>${s.name}</h3>
+    <div class="kind">Structure${s.body ? ' · body' : ''}</div>
+    <div class="f"><span class="fl">What it does</span><div class="fv">${s.role}</div></div>
+    <div class="f"><span class="fl">In schizophrenia</span><div class="fv">${s.sz}</div></div>
+    ${s.effect ? `<div class="f"><span class="fl">Group difference</span><div class="fv effect">${s.effect}</div></div>` : ''}
+    <div class="f"><span class="fl">Source</span>${srcHtml(s.src)}</div>`;
+  highlight(id);
+  reveal();
+}
+function selectPath(id) {
+  const p = PATHWAYS[id];
+  state.selected = id;
+  state.focus = state.focus === id ? null : id;
+  state.visible.add(id);
+  document.querySelector(`[data-path="${id}"] input`).checked = true;
+  markSelected();
+  const kind = p.type === 'mixed' ? 'Nerve + hormonal pathway' : 'Nerve pathway';
+  const rateTxt = p.dir === 'same' ? 'Drawn at normal activity on both sides' : `Drawn at ×${p.rate} activity on the schizophrenia side`;
+  detail.innerHTML = `
+    <h3>${p.name}</h3>
+    <div class="kind">${kind}${state.focus ? ' · focused (click again to show all)' : ''}</div>
+    <div class="f"><span class="fl">Route</span><div class="fv">${p.route}</div></div>
+    <div class="f"><span class="fl">What it does</span><div class="fv">${p.role}</div></div>
+    <div class="f"><span class="fl">In schizophrenia</span><div class="fv">${p.sz}</div></div>
+    <div class="f"><span class="fl">Evidence</span><div class="fv effect">${p.evidence}</div><div class="fv" style="color:var(--muted);font-size:.72rem;margin-top:2px">${rateTxt}</div></div>
+    <div class="f"><span class="fl">Source</span>${srcHtml(p.src)}</div>`;
+  highlight(null);
+  reveal();
+}
+function reveal() {
+  if (window.innerWidth <= 860) document.getElementById('sidebar').classList.add('open');
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function markSelected() {
+  document.querySelectorAll('[data-path],[data-struct]').forEach(el => el.classList.toggle('selected', el.dataset.path === state.selected || el.dataset.struct === state.selected));
+}
+function highlight(id) {
+  for (const v of views) for (const key in v.meshes) for (const m of v.meshes[key]) {
+    if (key === 'cortex') continue;
+    const mats = Array.isArray(m.material) ? m.material : [m.material];
+    for (const mt of mats) if (mt.emissive) {
+      if (mt.userData.e0 === undefined) { mt.userData.e0 = mt.emissiveIntensity; mt.userData.c0 = mt.emissive.getHex(); }
+      const on = id && key === id;
+      mt.emissive.setHex(on ? 0xffffff : mt.userData.c0);
+      mt.emissiveIntensity = on ? 0.35 : mt.userData.e0;
+    }
+  }
+}
+function intro() {
+  detail.innerHTML = `
+    <h3>Start here</h3>
+    <div class="kind">How to use</div>
+    <div class="f"><div class="fv">Drag to rotate, scroll or pinch to zoom; both brains move together. Click any structure, or a pathway in the list, to see what it does and what large studies report in schizophrenia.</div></div>
+    <div class="f"><div class="fv">Switch to <b>Brain + body</b> to follow the pathways out of the skull: the vagus nerve to the heart, motor signals down the spinal cord, and the stress and prolactin hormones carried in the blood.</div></div>`;
+}
+
+/* ---------- picking ---------- */
+const ray = new THREE.Raycaster();
+const tooltip = document.getElementById('tooltip');
+function pickAt(ev) {
+  const rect = stage.getBoundingClientRect();
+  const x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+  const h = rect.height, w = rect.width;
+  const i = state.vertical ? (y < h / 2 ? 0 : 1) : (x < w / 2 ? 0 : 1);
+  const r = viewport(i);
+  const top = h - r.y - r.h;               // viewport y is from the bottom
+  const ndc = new THREE.Vector2(((x - r.x) / r.w) * 2 - 1, -((y - top) / r.h) * 2 + 1);
+  camera.aspect = r.w / r.h; camera.zoom = Math.min(1, camera.aspect / 0.88); camera.updateProjectionMatrix();
+  ray.setFromCamera(ndc, camera);
+  const v = views[i];
+  const targets = v.pick.filter(m => {
+    if (!m.visible) return false;
+    if (m.userData.id === 'cortex') return state.cortex === 'solid';
+    let o = m; while (o) { if (!o.visible) return false; o = o.parent; }
+    return true;
+  });
+  const hit = ray.intersectObjects(targets, false)[0];
+  return { hit, x, y, i };
+}
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointermove', e => {
+  if (e.buttons) { tooltip.style.display = 'none'; return; }
+  const { hit, x, y, i } = pickAt(e);
+  if (hit) {
+    const s = STRUCTURES[hit.object.userData.id];
+    tooltip.innerHTML = `<div class="tt">${s.name}</div><div class="tm">${i === 1 && s.effect ? s.effect : (i === 1 ? 'Schizophrenia side' : 'Control side')} · click for detail</div>`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = Math.min(x + 14, stage.clientWidth - 270) + 'px';
+    tooltip.style.top = (y + 14) + 'px';
+    renderer.domElement.style.cursor = 'pointer';
+  } else { tooltip.style.display = 'none'; renderer.domElement.style.cursor = ''; }
+});
+renderer.domElement.addEventListener('pointerleave', () => { tooltip.style.display = 'none'; });
+renderer.domElement.addEventListener('click', e => {
+  if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  const { hit } = pickAt(e);
+  if (hit) selectStructure(hit.object.userData.id);
+});
+
+document.getElementById('sidebar-toggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+
+buildLists();
+intro();
+window.__atlas = { state, views, camera, controls, selectPath, selectStructure };
+</script>
+</body>
+</html>
